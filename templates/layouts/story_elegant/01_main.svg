@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <!-- 暖白背景 -->
+  <rect width="1080" height="1920" fill="#F5F0E1"/>
+
+  <!-- 顶部品牌 -->
+  <text x="540" y="180" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#8B7355" letter-spacing="4">{{AUTHOR}}</text>
+  <rect x="460" y="200" width="160" height="1" fill="#D4C4A8"/>
+
+  <!-- 主图区 -->
+  <rect x="80" y="260" width="920" height="680" rx="20" fill="#D4C4A8" fill-opacity="0.4"/>
+  <text x="540" y="610" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#8B7355">{{IMAGE}}</text>
+
+  <!-- 标题区 -->
+  <rect x="80" y="990" width="8" height="80" rx="4" fill="#C67B5C"/>
+  <text x="110" y="1030" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="52" font-weight="bold" fill="#3D3028">{{TITLE}}</text>
+  <text x="110" y="1080" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="26" fill="#8B7355">{{SUBTITLE}}</text>
+
+  <!-- 正文区 -->
+  <text x="80" y="1180" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#3D3028">{{BODY}}</text>
+  <text x="80" y="1220" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#3D3028">感受生活中的美好瞬间</text>
+  <text x="80" y="1260" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#3D3028">用心记录每一个故事</text>
+
+  <!-- 标签 -->
+  <rect x="80" y="1340" width="140" height="40" rx="20" fill="#C67B5C" fill-opacity="0.12"/>
+  <text x="150" y="1367" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="18" fill="#C67B5C">#生活方式</text>
+  <rect x="240" y="1340" width="120" height="40" rx="20" fill="#6B7B3C" fill-opacity="0.12"/>
+  <text x="300" y="1367" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="18" fill="#6B7B3C">#品质</text>
+
+  <!-- CTA -->
+  <rect x="80" y="1480" width="920" height="68" rx="34" fill="#6B7B3C"/>
+  <text x="540" y="1524" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="26" font-weight="bold" fill="#FFFFFF">{{CTA}}</text>
+
+  <!-- 底部装饰 -->
+  <rect x="460" y="1700" width="160" height="1" fill="#D4C4A8"/>
+  <text x="540" y="1740" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="16" fill="#D4C4A8">{{DATE}}</text>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <!-- 深蓝背景 -->
+  <rect width="1920" height="1080" fill="#0F172A"/>
+
+  <!-- 右侧装饰几何 -->
+  <rect x="1200" y="0" width="720" height="1080" fill="#1E40AF" fill-opacity="0.15"/>
+  <rect x="1400" y="200" width="400" height="400" rx="24" fill="#1E40AF" fill-opacity="0.1"/>
+
+  <!-- 图片占位区 -->
+  <rect x="1100" y="180" width="680" height="720" rx="20" fill="#1E293B"/>
+  <text x="1440" y="550" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="32" fill="#475569">{{IMAGE}}</text>
+
+  <!-- 左侧内容区 -->
+  <!-- 品牌名 -->
+  <text x="120" y="200" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#FFFFFF" fill-opacity="0.5" letter-spacing="3">{{AUTHOR}}</text>
+
+  <!-- 主标题 -->
+  <text x="120" y="380" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="72" font-weight="bold" fill="#FFFFFF">{{TITLE}}</text>
+
+  <!-- 副标题 -->
+  <text x="120" y="460" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="32" fill="#FFFFFF" fill-opacity="0.6">{{SUBTITLE}}</text>
+
+  <!-- 分割线 -->
+  <rect x="120" y="500" width="100" height="4" rx="2" fill="#F59E0B"/>
+
+  <!-- 正文 -->
+  <text x="120" y="570" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#FFFFFF" fill-opacity="0.7">{{BODY}}</text>
+  <text x="120" y="610" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#FFFFFF" fill-opacity="0.7">为企业提供专业解决方案</text>
+
+  <!-- 特点标签 -->
+  <rect x="120" y="670" width="160" height="44" rx="22" fill="#1E40AF" stroke="#3B82F6" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="200" y="700" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="18" fill="#93C5FD">专业可靠</text>
+  <rect x="300" y="670" width="160" height="44" rx="22" fill="#1E40AF" stroke="#3B82F6" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="380" y="700" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="18" fill="#93C5FD">值得信赖</text>
+  <rect x="480" y="670" width="160" height="44" rx="22" fill="#1E40AF" stroke="#3B82F6" stroke-opacity="0.3" stroke-width="1"/>
+  <text x="560" y="700" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="18" fill="#93C5FD">持续创新</text>
+
+  <!-- CTA 按钮 -->
+  <rect x="120" y="780" width="280" height="64" rx="32" fill="#F59E0B"/>
+  <text x="260" y="822" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#0F172A">{{CTA}}</text>
+
+  <!-- 底部装饰线 -->
+  <rect x="120" y="960" width="600" height="1" fill="#FFFFFF" fill-opacity="0.1"/>
+  <text x="120" y="1000" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="16" fill="#FFFFFF" fill-opacity="0.3">{{DATE}}</text>
+</svg>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1242" height="1660" viewBox="0 0 1242 1660">
+  <!-- 暖白背景 -->
+  <rect width="1242" height="1660" fill="#F5F0E1"/>
+
+  <!-- 全宽顶部图片区 -->
+  <rect x="0" y="0" width="1242" height="700" fill="#D4C4A8" fill-opacity="0.5"/>
+  <text x="621" y="360" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="32" fill="#8B7355">{{IMAGE}}</text>
+
+  <!-- 标题浮于图片底部 -->
+  <rect x="60" y="620" width="1122" height="160" rx="20" fill="#FFFFFF"/>
+  <text x="120" y="690" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="44" font-weight="bold" fill="#3D3028">{{TITLE}}</text>
+  <text x="120" y="740" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#8B7355">{{SUBTITLE}}</text>
+
+  <!-- 评分区 -->
+  <rect x="60" y="820" width="1122" height="100" rx="16" fill="#FFFFFF"/>
+  <text x="120" y="870" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="36" font-weight="bold" fill="#C67B5C">★★★★★</text>
+  <text x="400" y="870" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#8B7355">综合评分 4.8 / 5.0</text>
+
+  <!-- 详情列表 -->
+  <rect x="60" y="950" width="1122" height="360" rx="16" fill="#FFFFFF"/>
+  <text x="120" y="1000" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="26" font-weight="bold" fill="#3D3028">产品详情</text>
+  <rect x="120" y="1020" width="980" height="1" fill="#F5F0E1"/>
+  <text x="120" y="1070" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#8B7355">{{BODY}}</text>
+  <text x="120" y="1110" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#8B7355">· 产品规格说明</text>
+  <text x="120" y="1150" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#8B7355">· 使用方法介绍</text>
+  <text x="120" y="1190" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#8B7355">· 适合人群推荐</text>
+  <text x="120" y="1230" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#8B7355">· 购买渠道与价格</text>
+
+  <!-- CTA -->
+  <rect x="60" y="1380" width="1122" height="68" rx="34" fill="#6B7B3C"/>
+  <text x="621" y="1424" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF">{{CTA}}</text>
+
+  <!-- 底部 -->
+  <rect x="60" y="1540" width="1122" height="1" fill="#D4C4A8"/>
+  <text x="60" y="1580" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#8B7355">{{AUTHOR}}</text>
+  <text x="1182" y="1580" text-anchor="end" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#D4C4A8">{{DATE}}</text>
+</svg>

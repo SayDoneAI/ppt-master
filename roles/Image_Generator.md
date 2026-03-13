@@ -105,6 +105,42 @@
 | **一般咨询** | 简洁专业、商务风   | `professional`, `clean`, `corporate`, `minimalist`             |
 | **顶级咨询** | 高端简约、抽象几何 | `premium`, `sophisticated`, `geometric`, `abstract`, `elegant` |
 
+### 2.4 风格提示词库（162 个实战案例）
+
+> **重要**: 生成提示词前，**必须**查阅 `$PPT_MASTER/templates/styles/` 目录获取经过验证的 Prompt 参考。
+
+**查阅流程**:
+
+1. 根据图片用途/风格需求，定位到对应分类目录
+2. 阅读该分类的 `README.md`，找到最匹配的案例
+3. 参考案例 Prompt 的结构和关键词，适配到当前需求
+4. 不要照搬，要根据当前项目的配色、尺寸、用途调整
+
+**分类索引**（位于 `$PPT_MASTER/templates/styles/`）:
+
+| 分类 | 目录 | 案例数 | 适用场景 |
+|------|------|--------|---------|
+| 海报/卡片设计 | `poster_design/` | 15 | 海报主图、封面、金句卡片、名片 |
+| 产品/商业 | `product_commercial/` | 21 | 产品种草图、包装、食物、珠宝 |
+| 风格转换 | `style_artistic/` | 7 | 赛博朋克、浮世绘、PIXAR 等风格化图片 |
+| 信息图/数据可视化 | `infographic_data/` | 15 | 流程图、地图、科普图、分镜 |
+| 3D/等距/微缩 | `threed_isometric/` | 13 | 等距视图、微缩场景、产品拆解 |
+| 漫画/插画 | `illustration_comic/` | 19 | 漫画、角色设定、线稿上色 |
+| 人物/肖像 | `portrait_character/` | 18 | 人物换装、发型、风格化肖像 |
+| 材质/特效 | `material_effect/` | 11 | 水晶质感、亚克力、毛绒、光影 |
+| 其他创意 | `creative_other/` | 43 | 坐标生图、递归、AR 等特殊创意 |
+
+**使用示例**:
+
+```
+用户需求：小红书产品种草海报，需要一张暖色调产品图
+  ↓
+1. 查阅 templates/styles/product_commercial/README.md
+2. 找到「精致可爱的产品照片」案例（Regular#53）
+3. 参考其 Prompt 结构：主体 + 光照 + 背景 + 色调 + 品质
+4. 适配：替换产品名、调整配色为项目配色方案
+```
+
 ### 2.4 色彩整合方法
 
 从设计规范提取配色，转换为提示词：
@@ -350,8 +386,9 @@ subtle and elegant, suitable for presentation slide corners
 
 1. 阅读设计规范，理解项目整体风格
 2. 提取配色方案、画布格式、目标受众
-3. 逐一分析图片资源清单中的每张图片
-4. **判断每张图片的类型**（参考 3.0 类型判断流程）
+3. **查阅风格提示词库**（`$PPT_MASTER/templates/styles/`）— 根据项目风格定位到对应分类，阅读相关案例的 Prompt 作为参考
+4. 逐一分析图片资源清单中的每张图片
+5. **判断每张图片的类型**（参考 3.0 类型判断流程）
 
 ### 4.2 提示词生成阶段
 
@@ -360,9 +397,10 @@ subtle and elegant, suitable for presentation slide corners
 1. **判断类型**: 这张图片属于哪种类型？（背景图/实景照片/插画/图表/装饰）
 2. **理解用途**: 这张图片在哪页？承担什么功能？
 3. **分析原始描述**: 用户在「生成描述」中提供了什么信息？
-4. **应用类型要点**: 参考对应类型的「提示词要点」表格
-5. **生成优化提示词**: 使用 2.1 统一输出格式
-6. **保存提示词文档**: ⚠️ **必须**使用文件写入工具将所有提示词保存到 `项目/images/image_prompts.md`
+4. **查阅风格参考**: 在 `$PPT_MASTER/templates/styles/` 中查找匹配的案例 Prompt，提取关键词和结构
+5. **应用类型要点**: 参考对应类型的「提示词要点」表格
+6. **生成优化提示词**: 使用 2.1 统一输出格式，融合风格参考中的经验
+7. **保存提示词文档**: ⚠️ **必须**使用文件写入工具将所有提示词保存到 `项目/images/image_prompts.md`
 
 ### 4.3 图片生成阶段
 
@@ -377,25 +415,47 @@ subtle and elegant, suitable for presentation slide corners
 - 可选环境变量：`GEMINI_BASE_URL`
 - 命令格式:
   ```bash
+  # 文生图（默认 gemini 引擎）
   python3 tools/nano_banana_gen.py "你的提示词" --aspect_ratio 16:9 --image_size 4K --output 项目/images --filename cover_bg
+
+  # 图生图（基于参考图片风格转换/修改）
+  python3 tools/nano_banana_gen.py "修改指令" --input 参考图.jpg --strength 0.5 -o 项目/images
+
+  # 使用 Kling v3 引擎
+  python3 tools/nano_banana_gen.py "提示词" --engine kling --aspect_ratio 16:9 -o 项目/images
+
+  # 使用 doubao 引擎（支持图生图，如编辑图片文字）
+  python3 tools/nano_banana_gen.py "修改指令" --engine doubao --input 原图.jpg -o 项目/images
   ```
 - **生成节奏控制（强制）**：
 - 每次只执行一个生成命令，等待图片返回并确认文件落盘后，再执行下一条
 - 建议每张间隔 2-5 秒，避免并发或过快提交导致失败
 - 如出现失败/无输出，先停止队列，检查环境变量与输出目录，再继续
+- **三引擎选择指南**:
+
+  | 引擎 | 默认模型 | 特点 | 适用场景 |
+  |------|----------|------|----------|
+  | `gemini`（默认） | `gemini-3.1-flash-image-preview` | 创意强、质量高、支持图生图 | 通用生图、风格创作 |
+  | `kling` | `kling-v3` | 写实风格、人像优秀、支持图生图 | 产品图、人像、写实场景 |
+  | `doubao` | `doubao-seedream-5-0-260128` | 中文理解好、支持图生图 | 编辑图片文字、风格转换 |
+
 - **完整参数列表**:
 
   | 参数 | 简写 | 说明 | 默认值 |
   |------|------|------|--------|
   | `prompt` | - | 正向提示词（位置参数） | `Nano Banana` |
+  | `--engine` | `-e` | 引擎选择 (`gemini` / `kling` / `doubao`) | `gemini` |
   | `--negative_prompt` | `-n` | 负面提示词，指定需要排除的元素 | 无 |
   | `--aspect_ratio` | - | 图片宽高比 | `1:1` |
-  | `--image_size` | - | 图片尺寸 (`1K`, `2K`, `4K`) | `4K` |
+  | `--image_size` | - | 图片尺寸 (`1K`, `2K`, `4K`)，仅 gemini 有效 | `2K` |
+  | `--input` | `-i` | 参考图片路径（图生图模式，三引擎均支持） | 无 |
+  | `--strength` | `-s` | 参考图片强度 0.0-1.0（0=保留原图, 1=忽略） | 无（不传则由引擎决定） |
   | `--output` | `-o` | 输出目录 | 当前目录 |
   | `--filename` | `-f` | 指定输出文件名（不含扩展名） | 自动命名 |
+  | `--model` | `-m` | 指定模型名称（覆盖引擎默认值） | 按引擎 |
 
 - 支持的宽高比: `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9`
-- 支持的尺寸: `1K`, `2K`, `4K`（默认）
+- 支持的尺寸: `1K`, `2K`, `4K`（仅 gemini 引擎）
 - 使用 `--output` 或 `-o` 参数指定输出目录，图片将保存到与 `image_prompts.md` 相同的 `images/` 目录
 
 **方式二：自动生成**（如果 AI 工具支持）

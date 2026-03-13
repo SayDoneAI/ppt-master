@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <!-- 深黑背景 -->
+  <rect width="1080" height="1080" fill="#111111"/>
+
+  <!-- 左上角装饰引号 -->
+  <text x="80" y="200" font-family="Georgia, serif" font-size="160" fill="#FFFFFF" fill-opacity="0.08">"</text>
+
+  <!-- 金句文字 -->
+  <text x="540" y="420" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="64" font-weight="bold" fill="#FFFFFF">{{TITLE}}</text>
+  <text x="540" y="510" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="64" font-weight="bold" fill="#FFFFFF">{{SUBTITLE}}</text>
+
+  <!-- 分割线 -->
+  <rect x="460" y="580" width="160" height="2" fill="#666666"/>
+
+  <!-- 正文补充 -->
+  <text x="540" y="660" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#666666">{{BODY}}</text>
+
+  <!-- 署名 -->
+  <text x="540" y="880" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#AAAAAA">— {{AUTHOR}}</text>
+
+  <!-- 日期 -->
+  <text x="540" y="940" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="18" fill="#444444">{{DATE}}</text>
+
+  <!-- 右下角装饰引号 -->
+  <text x="920" y="1000" font-family="Georgia, serif" font-size="160" fill="#FFFFFF" fill-opacity="0.08">"</text>
+</svg>

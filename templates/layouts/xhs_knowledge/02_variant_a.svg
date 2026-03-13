@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1242" height="1660" viewBox="0 0 1242 1660">
+  <!-- 背景 -->
+  <rect width="1242" height="1660" fill="#F8FAFC"/>
+
+  <!-- 标题区 - 带蓝色左装饰条 -->
+  <rect x="60" y="80" width="6" height="80" rx="3" fill="#2563EB"/>
+  <text x="86" y="126" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="56" font-weight="bold" fill="#1E293B">{{TITLE}}</text>
+  <text x="86" y="175" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#64748B">{{SUBTITLE}}</text>
+
+  <!-- 图片占位区 -->
+  <rect x="60" y="220" width="1122" height="480" rx="16" fill="#E2E8F0"/>
+  <text x="621" y="470" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#94A3B8">{{IMAGE}}</text>
+
+  <!-- 步骤列表 -->
+  <!-- 步骤 1 -->
+  <rect x="60" y="730" width="1122" height="160" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <rect x="80" y="750" width="48" height="48" rx="24" fill="#2563EB"/>
+  <text x="104" y="782" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">1</text>
+  <text x="148" y="782" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#1E293B">第一步标题</text>
+  <text x="80" y="835" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">详细步骤说明内容，指导用户操作</text>
+
+  <!-- 步骤 2 -->
+  <rect x="60" y="910" width="1122" height="160" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <rect x="80" y="930" width="48" height="48" rx="24" fill="#2563EB"/>
+  <text x="104" y="962" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">2</text>
+  <text x="148" y="962" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#1E293B">第二步标题</text>
+  <text x="80" y="1015" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">详细步骤说明内容，指导用户操作</text>
+
+  <!-- 步骤 3 -->
+  <rect x="60" y="1090" width="1122" height="160" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <rect x="80" y="1110" width="48" height="48" rx="24" fill="#2563EB"/>
+  <text x="104" y="1142" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">3</text>
+  <text x="148" y="1142" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#1E293B">第三步标题</text>
+  <text x="80" y="1195" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">详细步骤说明内容，指导用户操作</text>
+
+  <!-- 提示卡片 -->
+  <rect x="60" y="1300" width="1122" height="140" rx="16" fill="#DBEAFE"/>
+  <text x="90" y="1350" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#2563EB">💡</text>
+  <text x="130" y="1350" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#1E293B">小贴士</text>
+  <text x="90" y="1400" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#475569">补充说明内容，增加实用价值</text>
+
+  <!-- 底部 -->
+  <rect x="60" y="1540" width="1122" height="1" fill="#E2E8F0"/>
+  <text x="60" y="1580" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#64748B">{{AUTHOR}}</text>
+  <text x="1182" y="1580" text-anchor="end" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#94A3B8">{{DATE}}</text>
+</svg>

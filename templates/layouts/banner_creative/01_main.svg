@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="auroraBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0A0A1A"/>
+      <stop offset="40%" stop-color="#0D1B3E"/>
+      <stop offset="100%" stop-color="#1A0A2E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 深色渐变背景 -->
+  <rect width="1920" height="1080" fill="url(#auroraBg)"/>
+
+  <!-- 极光装饰 - 用椭圆模拟 -->
+  <ellipse cx="960" cy="300" rx="800" ry="200" fill="#0080FF" fill-opacity="0.08"/>
+  <ellipse cx="600" cy="500" rx="500" ry="150" fill="#FF1493" fill-opacity="0.06"/>
+  <ellipse cx="1400" cy="600" rx="400" ry="120" fill="#00FFFF" fill-opacity="0.05"/>
+
+  <!-- 装饰光点 -->
+  <circle cx="300" cy="200" r="4" fill="#00FFFF" fill-opacity="0.6"/>
+  <circle cx="500" cy="150" r="3" fill="#0080FF" fill-opacity="0.5"/>
+  <circle cx="1500" cy="250" r="5" fill="#FF1493" fill-opacity="0.4"/>
+  <circle cx="1700" cy="350" r="3" fill="#00FFFF" fill-opacity="0.5"/>
+
+  <!-- 居中大标题 -->
+  <text x="960" y="400" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="88" font-weight="bold" fill="#FFFFFF">{{TITLE}}</text>
+
+  <!-- 副标题 -->
+  <text x="960" y="480" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="32" fill="#FFFFFF" fill-opacity="0.6">{{SUBTITLE}}</text>
+
+  <!-- 分割装饰 -->
+  <rect x="860" y="520" width="80" height="3" rx="1" fill="#0080FF"/>
+  <rect x="960" y="520" width="40" height="3" rx="1" fill="#FF1493"/>
+  <rect x="1020" y="520" width="40" height="3" rx="1" fill="#00FFFF"/>
+
+  <!-- 正文 -->
+  <text x="960" y="600" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#FFFFFF" fill-opacity="0.7">{{BODY}}</text>
+  <text x="960" y="645" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#FFFFFF" fill-opacity="0.7">探索无限创意可能</text>
+
+  <!-- CTA 按钮 - 渐变边框效果 -->
+  <rect x="780" y="720" width="360" height="68" rx="34" fill="#FFFFFF" fill-opacity="0.05" stroke="#0080FF" stroke-opacity="0.5" stroke-width="2"/>
+  <text x="960" y="764" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">{{CTA}}</text>
+
+  <!-- 底部品牌 -->
+  <text x="960" y="980" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="18" fill="#FFFFFF" fill-opacity="0.3" letter-spacing="4">{{AUTHOR}}</text>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1242" height="1660" viewBox="0 0 1242 1660">
+  <!-- 背景 -->
+  <rect width="1242" height="1660" fill="#F8FAFC"/>
+
+  <!-- 顶部标题区 -->
+  <text x="621" y="140" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="56" font-weight="bold" fill="#1E293B">{{TITLE}}</text>
+  <text x="621" y="200" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="30" fill="#64748B">{{SUBTITLE}}</text>
+
+  <!-- 蓝色装饰线 -->
+  <rect x="571" y="230" width="100" height="4" rx="2" fill="#2563EB"/>
+
+  <!-- 要点列表区 -->
+  <rect x="60" y="280" width="1122" height="56" rx="12" fill="#DBEAFE"/>
+  <text x="90" y="316" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#2563EB">01</text>
+  <text x="140" y="316" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#1E293B">{{BODY}}</text>
+
+  <rect x="60" y="352" width="1122" height="56" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="90" y="388" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#2563EB">02</text>
+  <text x="140" y="388" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#1E293B">第二个核心知识要点</text>
+
+  <rect x="60" y="424" width="1122" height="56" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="90" y="460" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#2563EB">03</text>
+  <text x="140" y="460" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#1E293B">第三个核心知识要点</text>
+
+  <!-- 底部大图区 -->
+  <rect x="60" y="530" width="1122" height="960" rx="24" fill="#E2E8F0"/>
+  <text x="621" y="1020" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="32" fill="#94A3B8">{{IMAGE}}</text>
+
+  <!-- 底部信息 -->
+  <rect x="60" y="1540" width="1122" height="1" fill="#E2E8F0"/>
+  <text x="60" y="1580" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#64748B">{{AUTHOR}}</text>
+  <text x="1182" y="1580" text-anchor="end" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#94A3B8">{{DATE}}</text>
+</svg>

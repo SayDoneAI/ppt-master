@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1242" height="1660" viewBox="0 0 1242 1660">
+  <!-- 背景 -->
+  <rect width="1242" height="1660" fill="#F8FAFC"/>
+
+  <!-- 标题区 -->
+  <text x="621" y="140" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="56" font-weight="bold" fill="#1E293B">{{TITLE}}</text>
+  <text x="621" y="190" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="32" fill="#64748B">{{SUBTITLE}}</text>
+
+  <!-- 蓝色装饰条 -->
+  <rect x="571" y="220" width="100" height="4" rx="2" fill="#2563EB"/>
+
+  <!-- Bento Grid 卡片区 -->
+  <!-- 卡片1：全宽 -->
+  <rect x="60" y="280" width="1122" height="200" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <rect x="80" y="300" width="48" height="48" rx="12" fill="#2563EB"/>
+  <text x="104" y="332" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">1</text>
+  <text x="148" y="332" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#1E293B">{{BODY}}</text>
+  <text x="80" y="380" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">知识要点说明文字区域，简洁概括核心内容</text>
+  <text x="80" y="420" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">支持多行展示详细内容</text>
+
+  <!-- 卡片2：半宽左 -->
+  <rect x="60" y="500" width="541" height="280" rx="16" fill="#DBEAFE"/>
+  <rect x="80" y="520" width="48" height="48" rx="12" fill="#2563EB"/>
+  <text x="104" y="552" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">2</text>
+  <text x="148" y="552" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#1E293B">核心概念</text>
+  <text x="80" y="610" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#475569">详细说明文字区域</text>
+  <text x="80" y="650" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#475569">支持多行内容</text>
+
+  <!-- 卡片3：半宽右 -->
+  <rect x="621" y="500" width="561" height="280" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <rect x="641" y="520" width="48" height="48" rx="12" fill="#2563EB"/>
+  <text x="665" y="552" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">3</text>
+  <text x="709" y="552" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#1E293B">实践方法</text>
+  <text x="641" y="610" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">操作步骤说明</text>
+  <text x="641" y="650" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">实用技巧分享</text>
+
+  <!-- 卡片4：全宽 -->
+  <rect x="60" y="800" width="1122" height="200" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  <rect x="80" y="820" width="48" height="48" rx="12" fill="#2563EB"/>
+  <text x="104" y="852" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">4</text>
+  <text x="148" y="852" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#1E293B">总结要点</text>
+  <text x="80" y="910" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">总结性内容区域，帮助读者回顾核心内容</text>
+  <text x="80" y="950" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">加深理解与记忆</text>
+
+  <!-- 卡片5：三分之一宽 x3 -->
+  <rect x="60" y="1020" width="354" height="180" rx="16" fill="#F1F5F9"/>
+  <text x="237" y="1100" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="36" font-weight="bold" fill="#2563EB">85%</text>
+  <text x="237" y="1140" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#64748B">数据指标一</text>
+
+  <rect x="434" y="1020" width="354" height="180" rx="16" fill="#F1F5F9"/>
+  <text x="611" y="1100" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="36" font-weight="bold" fill="#2563EB">120+</text>
+  <text x="611" y="1140" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#64748B">数据指标二</text>
+
+  <rect x="808" y="1020" width="374" height="180" rx="16" fill="#F1F5F9"/>
+  <text x="995" y="1100" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="36" font-weight="bold" fill="#2563EB">3x</text>
+  <text x="995" y="1140" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#64748B">数据指标三</text>
+
+  <!-- CTA 按钮 -->
+  <rect x="371" y="1280" width="500" height="64" rx="32" fill="#2563EB"/>
+  <text x="621" y="1322" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF">{{CTA}}</text>
+
+  <!-- 底部区 -->
+  <rect x="60" y="1540" width="1122" height="1" fill="#E2E8F0"/>
+  <text x="60" y="1580" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#64748B">{{AUTHOR}}</text>
+  <text x="1182" y="1580" text-anchor="end" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#94A3B8">{{DATE}}</text>
+</svg>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <!-- 背景 -->
+  <rect width="1080" height="1920" fill="#F8FAFC"/>
+
+  <!-- 顶部蓝色大色块 -->
+  <rect x="0" y="0" width="1080" height="800" fill="#2563EB"/>
+  <!-- 紫色装饰块 -->
+  <rect x="0" y="0" width="400" height="300" fill="#7C3AED"/>
+
+  <!-- 品牌名 -->
+  <text x="60" y="180" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#FFFFFF" fill-opacity="0.7">{{AUTHOR}}</text>
+
+  <!-- 大标题 -->
+  <text x="60" y="500" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="72" font-weight="bold" fill="#FFFFFF">{{TITLE}}</text>
+  <text x="60" y="580" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="72" font-weight="bold" fill="#FFFFFF">{{SUBTITLE}}</text>
+
+  <!-- 日期标签 -->
+  <rect x="60" y="640" width="240" height="48" rx="24" fill="#FFFFFF" fill-opacity="0.2"/>
+  <text x="180" y="672" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#FFFFFF">{{DATE}}</text>
+
+  <!-- 图片占位区 -->
+  <rect x="60" y="860" width="960" height="480" rx="24" fill="#E2E8F0"/>
+  <text x="540" y="1110" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#94A3B8">{{IMAGE}}</text>
+
+  <!-- 内容区 -->
+  <text x="60" y="1430" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#1E293B">精彩内容</text>
+  <text x="60" y="1480" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">{{BODY}}</text>
+  <text x="60" y="1520" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#64748B">更多详情等你发现</text>
+
+  <!-- CTA 按钮 -->
+  <rect x="60" y="1600" width="960" height="72" rx="36" fill="#F97316"/>
+  <text x="540" y="1646" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF">{{CTA}}</text>
+
+  <!-- 底部安全区提示 -->
+  <text x="540" y="1800" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="16" fill="#94A3B8">上滑了解更多</text>
+</svg>

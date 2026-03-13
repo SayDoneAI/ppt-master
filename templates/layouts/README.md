@@ -1,6 +1,6 @@
 # 页面布局模板库
 
-预置的 PPT 页面布局模板，支持多种风格和使用场景。
+预置的 PPT 和海报布局模板，支持多种风格和使用场景。
 
 ---
 
@@ -29,6 +29,19 @@
 | `科技蓝商务` | 通用风格 | 企业汇报、产品发布、方案提案 | 科技蓝 `#0078D7` | 科技、商务、专业、简洁 |
 | `smart_red` | 通用风格 | 科技企业介绍、教育行业解决方案 | 智慧红橙 `#DE3545` | 现代、活力、几何感 |
 | `重庆大学` | 场景专用 | 学术答辩、科研汇报 | 重大蓝 `#006BB7` | 学术稳重、山城气韵 |
+| `xhs_knowledge` | 小红书 | 知识分享、干货拆解、教程 | 蓝色 `#2563EB` + 石板灰 | Bento Grid、卡片堆叠 |
+| `xhs_product` | 小红书 | 产品种草、生活方式、美妆 | 赤陶 `#C67B5C` + 橄榄绿 | Nature Distilled、暖色有机 |
+| `xhs_minimal` | 小红书 | 金句卡片、个人IP、观点输出 | 黑白 `#000000` | Exaggerated Minimalism |
+| `moments_quote` | 朋友圈 | 金句海报、每日一言 | 深黑 `#111111` + 白 | 超大字、高对比 |
+| `moments_event` | 朋友圈 | 活动宣传、促销、发布会 | 蓝 `#2563EB` + 紫 `#7C3AED` + 橙 `#F97316` | Vibrant Block、活力色块 |
+| `moments_brand` | 朋友圈 | 品牌展示、公司宣传 | 靛蓝 `#6366F1` + 紫 `#8B5CF6` | Glassmorphism、毛玻璃 |
+| `story_vibrant` | Story | 短视频封面、活动快拍 | 蓝 `#2563EB` + 紫 `#7C3AED` + 橙 `#F97316` | Vibrant Block、大色块 |
+| `story_elegant` | Story | 生活方式、品牌故事 | 赤陶 `#C67B5C` + 橄榄绿 `#6B7B3C` | Nature Distilled、暖色优雅 |
+| `wechat_tech` | 公众号 | 技术文章、行业分析 | 科技蓝 `#0078D7` | Flat Design、科技简洁 |
+| `wechat_warm` | 公众号 | 生活类、教育类文章 | 赤陶 `#C67B5C` | Nature Distilled、暖色 |
+| `banner_corporate` | Banner | 企业官网、产品发布 | 深蓝 `#1E40AF` + 琥珀 `#F59E0B` | Trust & Authority |
+| `banner_creative` | Banner | 创意展示、活动横幅 | 蓝 `#0080FF` + 品红 `#FF1493` + 青 `#00FFFF` | Aurora UI、渐变流动 |
+
 ---
 
 ## 模板分类
@@ -93,11 +106,58 @@
 
 > **设计理念**：风格与场景是 **正交** 的概念。场景模板定义内容结构，风格定义视觉表现。理论上，场景模板可以搭配不同的风格使用。
 
+### 6️⃣ 小红书模板 (1242×1660)
+
+竖屏 3:4 比例，适用于小红书平台图文内容。
+
+| 模板 | 风格 | 说明 |
+|------|------|------|
+| `xhs_knowledge` | Bento Grid + Flat Design | 知识分享、干货拆解、教程类卡片 |
+| `xhs_product` | Nature Distilled | 产品种草、生活方式、暖色有机质感 |
+| `xhs_minimal` | Exaggerated Minimalism | 金句卡片、个人IP、大字极简 |
+
+### 7️⃣ 朋友圈模板 (1080×1080)
+
+正方形 1:1 比例，适用于微信朋友圈分享。
+
+| 模板 | 风格 | 说明 |
+|------|------|------|
+| `moments_quote` | Exaggerated Minimalism | 金句海报、每日一言、深色高对比 |
+| `moments_event` | Vibrant Block | 活动宣传、促销、色块拼接活力风 |
+| `moments_brand` | Glassmorphism | 品牌展示、毛玻璃高端质感 |
+
+### 8️⃣ Story 模板 (1080×1920)
+
+竖屏 9:16 比例，适用于 Instagram Story、抖音封面等。
+
+| 模板 | 风格 | 说明 |
+|------|------|------|
+| `story_vibrant` | Vibrant Block | 短视频封面、活动快拍、大色块醒目 |
+| `story_elegant` | Nature Distilled | 生活方式、品牌故事、暖色优雅 |
+
+### 9️⃣ 公众号头图模板 (900×383)
+
+宽幅 2.35:1 比例，适用于微信公众号文章配图。
+
+| 模板 | 风格 | 说明 |
+|------|------|------|
+| `wechat_tech` | Flat Design | 技术文章、行业分析、科技蓝简洁 |
+| `wechat_warm` | Nature Distilled | 生活类、教育类、暖色调 |
+
+### 🔟 Banner 模板 (1920×1080)
+
+宽屏 16:9 比例，适用于网页横幅、产品发布。
+
+| 模板 | 风格 | 说明 |
+|------|------|------|
+| `banner_corporate` | Trust & Authority | 企业官网、专业蓝灰信任感 |
+| `banner_creative` | Aurora UI | 创意展示、渐变流动视觉冲击 |
+
 ---
 
 ## 模板文件结构
 
-模板建议包含以下标准文件（目录页可选）：
+### PPT 模板（多页）
 
 | 文件名 | 必须 | 用途 | 说明 |
 |--------|------|------|------|
@@ -107,6 +167,17 @@
 | `02_chapter.svg` | ✅ | 章节页 | 章节编号、章节标题 |
 | `03_content.svg` | ✅ | 内容页 | 页眉页脚固定，内容区灵活 |
 | `04_ending.svg` | ✅ | 结束页 | 感谢语、联系方式 |
+
+### 海报模板（单页）
+
+海报为单页内容，文件结构简化：
+
+| 文件名 | 必须 | 用途 | 说明 |
+|--------|------|------|------|
+| `design_spec.md` | ✅ | 设计规范 | 配色、排版、布局规范 |
+| `01_main.svg` | ✅ | 主模板 | 完整布局，带占位符 |
+| `02_variant_a.svg` | ⬜ 可选 | 变体 A | 不同布局（图文版/数据版等） |
+| `03_variant_b.svg` | ⬜ 可选 | 变体 B | 更多变化 |
 
 > **设计理念**：模板定义视觉一致性和结构性页面，内容页保持最大灵活性，让 AI 根据实际内容决定布局。
 
@@ -182,6 +253,15 @@
 | `{{CLOSING_MESSAGE}}` | 结语 |
 | `{{CONTACT_INFO}}` | 联系信息 |
 
+### 海报专用
+
+| 占位符 | 用途 |
+|--------|------|
+| `{{BODY}}` | 正文内容区 |
+| `{{IMAGE}}` | 图片占位区 |
+| `{{CTA}}` | 行动号召（如"立即了解"） |
+| `{{QR_CODE}}` | 二维码占位区 |
+
 ---
 
 ## 使用方式
@@ -218,14 +298,15 @@ cp templates/layouts/government_red/* projects/<项目>/templates/
 1. 在 `templates/layouts/` 下创建新目录
 2. 参考现有模板结构创建必需文件
 3. 确保 `design_spec.md` 遵循标准章节结构
-4. 所有 SVG 使用 `viewBox="0 0 1280 720"`
-5. 遵循 SVG 技术约束（见下方）
+4. SVG viewBox 与目标格式尺寸一致（PPT: `0 0 1280 720`，小红书: `0 0 1242 1660` 等）
+5. 模板目录命名规范：`<格式前缀>_<风格名>`，如 `xhs_knowledge`、`moments_quote`
+6. 遵循 SVG 技术约束（见下方）
 
 ### SVG 技术约束（所有模板必须遵守）
 
 #### 必须满足
 
-- viewBox: `0 0 1280 720`
+- viewBox 与画布尺寸一致（参见 `docs/canvas_formats.md`）
 - 背景使用 `<rect>` 元素
 - 文本换行使用 `<tspan>`
 - 透明度使用 `fill-opacity` / `stroke-opacity`

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="383" viewBox="0 0 900 383">
+  <!-- 暖白背景 -->
+  <rect width="900" height="383" fill="#F5F0E1"/>
+
+  <!-- 左侧暖色装饰条 -->
+  <rect x="0" y="0" width="8" height="383" fill="#C67B5C"/>
+
+  <!-- 右侧装饰圆 -->
+  <circle cx="800" cy="100" r="80" fill="#C67B5C" fill-opacity="0.08"/>
+  <circle cx="760" cy="280" r="50" fill="#D4C4A8" fill-opacity="0.3"/>
+
+  <!-- 标题 -->
+  <text x="50" y="150" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="40" font-weight="bold" fill="#3D3028">{{TITLE}}</text>
+
+  <!-- 副标题 -->
+  <text x="50" y="200" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#8B7355">{{SUBTITLE}}</text>
+
+  <!-- 标签 -->
+  <rect x="50" y="245" width="80" height="28" rx="14" fill="#6B7B3C" fill-opacity="0.15"/>
+  <text x="90" y="265" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="14" fill="#6B7B3C">生活</text>
+  <rect x="145" y="245" width="80" height="28" rx="14" fill="#C67B5C" fill-opacity="0.15"/>
+  <text x="185" y="265" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="14" fill="#C67B5C">温暖</text>
+
+  <!-- 底部分割线 -->
+  <rect x="50" y="320" width="400" height="1" fill="#D4C4A8"/>
+  <text x="50" y="352" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="16" fill="#8B7355">{{AUTHOR}}</text>
+  <text x="850" y="352" text-anchor="end" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="14" fill="#D4C4A8">{{DATE}}</text>
+</svg>

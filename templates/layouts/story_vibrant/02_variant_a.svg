@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <!-- 背景 -->
+  <rect width="1080" height="1920" fill="#F8FAFC"/>
+
+  <!-- 顶部品牌 -->
+  <text x="60" y="160" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#7C3AED" letter-spacing="2">{{AUTHOR}}</text>
+
+  <!-- 大标题区 -->
+  <text x="60" y="280" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="68" font-weight="bold" fill="#1E293B">{{TITLE}}</text>
+  <text x="60" y="360" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="68" font-weight="bold" fill="#1E293B">{{SUBTITLE}}</text>
+
+  <!-- 描述文字 -->
+  <text x="60" y="440" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="26" fill="#64748B">{{BODY}}</text>
+  <text x="60" y="480" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="26" fill="#64748B">发现更多精彩内容</text>
+
+  <!-- CTA 按钮 -->
+  <rect x="60" y="530" width="320" height="60" rx="30" fill="#7C3AED"/>
+  <text x="220" y="570" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">{{CTA}}</text>
+
+  <!-- 日期标签 -->
+  <rect x="420" y="530" width="200" height="60" rx="30" fill="#F97316" fill-opacity="0.1"/>
+  <text x="520" y="568" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="20" fill="#F97316">{{DATE}}</text>
+
+  <!-- 底部大图区 - 占据下半部分 -->
+  <rect x="0" y="660" width="1080" height="1260" fill="#2563EB" fill-opacity="0.04"/>
+  <rect x="60" y="700" width="960" height="1040" rx="28" fill="#E2E8F0"/>
+  <text x="540" y="1230" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="32" fill="#94A3B8">{{IMAGE}}</text>
+
+  <!-- 底部安全区 -->
+  <text x="540" y="1830" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="16" fill="#94A3B8">上滑了解更多</text>
+</svg>
