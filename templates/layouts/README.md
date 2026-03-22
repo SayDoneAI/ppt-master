@@ -32,6 +32,12 @@
 | `xhs_knowledge` | 小红书 | 知识分享、干货拆解、教程 | 蓝色 `#2563EB` + 石板灰 | Bento Grid、卡片堆叠 |
 | `xhs_product` | 小红书 | 产品种草、生活方式、美妆 | 赤陶 `#C67B5C` + 橄榄绿 | Nature Distilled、暖色有机 |
 | `xhs_minimal` | 小红书 | 金句卡片、个人IP、观点输出 | 黑白 `#000000` | Exaggerated Minimalism |
+| `xhs_checklist` | 小红书 | 避坑指南、攻略清单、Do/Don't | 红 `#E53935` + 绿 `#43A047` + 蓝 `#1565C0` | 白底+彩色标签分区、编号列表 |
+| `xhs_gradient_features` | 小红书 | 产品优势、N大理由、功能列表 | 橙 `#FF9800` + 暖色渐变 | 渐变背景+圆形编号+特性卡片 |
+| `xhs_number_impact` | 小红书 | 收益展示、数据对比、理财案例 | 深色 `#0D1117` + 金 `#F5A623` | 超大数字冲击+深色金融质感 |
+| `xhs_pyramid_rank` | 小红书 | 品牌排名、等级评测、层级对比 | 彩色渐变（红→橙→黄→绿） | 金字塔层级图+两侧标注 |
+| `xhs_highlight_marker` | 小红书 | 观点输出、深度解读、个人IP | 米色 `#FDF6EC` + 荧光黄 `#FFEB3B` | 手写体+荧光笔高亮、牛皮纸质感 |
+| `xhs_photo_overlay` | 小红书 | 实地体验、新闻资讯、案例分享 | 红 `#E53935` + 黑白 | 图片+文字叠加+数据高亮条 |
 | `moments_quote` | 朋友圈 | 金句海报、每日一言 | 深黑 `#111111` + 白 | 超大字、高对比 |
 | `moments_event` | 朋友圈 | 活动宣传、促销、发布会 | 蓝 `#2563EB` + 紫 `#7C3AED` + 橙 `#F97316` | Vibrant Block、活力色块 |
 | `moments_brand` | 朋友圈 | 品牌展示、公司宣传 | 靛蓝 `#6366F1` + 紫 `#8B5CF6` | Glassmorphism、毛玻璃 |
@@ -115,6 +121,12 @@
 | `xhs_knowledge` | Bento Grid + Flat Design | 知识分享、干货拆解、教程类卡片 |
 | `xhs_product` | Nature Distilled | 产品种草、生活方式、暖色有机质感 |
 | `xhs_minimal` | Exaggerated Minimalism | 金句卡片、个人IP、大字极简 |
+| `xhs_checklist` | 白底+彩色标签分区 | 避坑指南、攻略清单、Do/Don't 对比 |
+| `xhs_gradient_features` | 暖色渐变+编号圆形 | 产品N大优势、功能列表、正面宣传 |
+| `xhs_number_impact` | 深色+超大数字+金色 | 收益展示、数据对比、理财案例 |
+| `xhs_pyramid_rank` | 彩色金字塔 | 品牌排名、等级评测、实力测评 |
+| `xhs_highlight_marker` | 手写体+荧光笔高亮 | 观点输出、底层逻辑、深度解读 |
+| `xhs_photo_overlay` | 图片+文字叠加 | 实地体验、新闻资讯、场景化案例 |
 
 ### 7️⃣ 朋友圈模板 (1080×1080)
 

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1242" height="1660" viewBox="0 0 1242 1660">
+  <!-- 图片占位区域（上半部分） -->
+  <rect width="1242" height="760" fill="#E8E8E8"/>
+  <text x="621" y="360" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="36" fill="#AAAAAA">{{IMAGE}}</text>
+  <text x="621" y="410" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#CCCCCC">1242 x 760 — 替换为实拍照片</text>
+
+  <!-- 图片上叠加的大字标题（半透明黑底） -->
+  <rect x="0" y="540" width="1242" height="220" fill="#000000" fill-opacity="0.55"/>
+  <text x="621" y="630" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="72" font-weight="bold" fill="#FFFFFF">{{OVERLAY_LINE1}}</text>
+  <text x="621" y="720" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="72" font-weight="bold" fill="#FFFFFF">{{OVERLAY_LINE2}}</text>
+
+  <!-- 数字高亮条 -->
+  <rect x="0" y="760" width="1242" height="120" fill="#E53935"/>
+  <text x="621" y="840" text-anchor="middle" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="64" font-weight="bold" fill="#FFFFFF">{{HIGHLIGHT_STAT}}</text>
+
+  <!-- 白色内容区域 -->
+  <rect x="0" y="880" width="1242" height="780" fill="#FFFFFF"/>
+
+  <!-- 内容标题 -->
+  <text x="80" y="960" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="36" font-weight="bold" fill="#1A1A1A">{{CONTENT_TITLE}}</text>
+  <rect x="80" y="980" width="80" height="4" rx="2" fill="#E53935"/>
+
+  <!-- 要点列表 -->
+  <rect x="80" y="1020" width="8" height="8" rx="4" fill="#E53935"/>
+  <text x="110" y="1030" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#333333">{{POINT_1}}</text>
+
+  <rect x="80" y="1080" width="8" height="8" rx="4" fill="#E53935"/>
+  <text x="110" y="1090" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#333333">{{POINT_2}}</text>
+
+  <rect x="80" y="1140" width="8" height="8" rx="4" fill="#E53935"/>
+  <text x="110" y="1150" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#333333">{{POINT_3}}</text>
+
+  <rect x="80" y="1200" width="8" height="8" rx="4" fill="#E53935"/>
+  <text x="110" y="1210" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#333333">{{POINT_4}}</text>
+
+  <rect x="80" y="1260" width="8" height="8" rx="4" fill="#E53935"/>
+  <text x="110" y="1270" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" fill="#333333">{{POINT_5}}</text>
+
+  <!-- 底部提示框 -->
+  <rect x="60" y="1360" width="1122" height="120" rx="12" fill="#FFF3E0"/>
+  <text x="100" y="1410" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="28" font-weight="bold" fill="#E65100">{{TIP_TITLE}}</text>
+  <text x="100" y="1455" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="24" fill="#BF360C">{{TIP_DESC}}</text>
+
+  <!-- 底部分割线 -->
+  <rect x="60" y="1540" width="1122" height="1" fill="#EEEEEE"/>
+
+  <!-- 底部信息 -->
+  <text x="60" y="1580" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#999999">{{AUTHOR}}</text>
+  <text x="1182" y="1580" text-anchor="end" font-family="Arial, 'Helvetica Neue', 'Microsoft YaHei', sans-serif" font-size="22" fill="#CCCCCC">{{DATE}}</text>
+
+  <!-- 底部红色装饰条 -->
+  <rect x="0" y="1648" width="1242" height="12" fill="#E53935"/>
+</svg>
