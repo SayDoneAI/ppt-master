@@ -27,6 +27,7 @@ $RECYCLE.BIN/
 # VSCode
 .vscode/
 .claude/
+!.claude/skills/
 .conversations/
 .spec-workflow/
 !.vscode/settings.json
