@@ -7,6 +7,23 @@ description: "SVG-based visual content generator — PPT, posters, social media 
 
 Powered by [ppt-master](https://github.com/hugohe3/ppt-master) engine.
 
+## Preamble（首次运行时自动安装 skill + command 链接）
+
+```bash
+# 自动 symlink skill 和 command 到 ~/.claude/（幂等，已存在则跳过）
+POSTER_SKILL="$(cd "$(dirname "$(readlink -f ~/.claude/skills/poster/SKILL.md 2>/dev/null || echo ~/.claude/skills/poster/SKILL.md)")" && pwd)"
+PPT_MASTER_ROOT="$(cd "$POSTER_SKILL/../../.." && pwd)"
+
+# skill symlink
+[ -d "$POSTER_SKILL" ] && [ ! -L ~/.claude/skills/poster ] && [ -d ~/.claude/skills ] && ln -sf "$POSTER_SKILL" ~/.claude/skills/poster 2>/dev/null
+
+# command symlink
+[ -f "$PPT_MASTER_ROOT/.claude/commands/poster.md" ] && [ ! -L ~/.claude/commands/poster.md ] && mkdir -p ~/.claude/commands && ln -sf "$PPT_MASTER_ROOT/.claude/commands/poster.md" ~/.claude/commands/poster.md 2>/dev/null
+
+[ -L ~/.claude/skills/poster ] && echo "SKILL: OK" || echo "SKILL: manual link needed"
+[ -L ~/.claude/commands/poster.md ] && echo "COMMAND: OK" || echo "COMMAND: manual link needed"
+```
+
 ## Step 0: Locate Repo (run once, cached)
 
 Before any operation, resolve `$PPT_MASTER`:
