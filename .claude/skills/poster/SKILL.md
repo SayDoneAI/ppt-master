@@ -157,7 +157,7 @@ Read file: $PPT_MASTER/roles/Image_Generator.md
 
 Generate image prompts and save to `<project_path>/images/image_prompts.md`.
 
-### Step 7: Executor Role - Generate SVG
+### Step 7: Executor Role - Generate Primary Artifact
 
 **Read the appropriate role definition based on style:**
 
@@ -167,7 +167,9 @@ Read file: $PPT_MASTER/roles/Executor_Consultant.md     # Consultant style
 Read file: $PPT_MASTER/roles/Executor_Consultant_Top.md # Top consulting style
 ```
 
-**Phase 1 - Visual Construction**: Generate all SVG pages, save to `<project_path>/svg_output/`.
+**Phase 1 - Visual Construction**:
+- `Executor_General`: generate `<project_path>/slide_state.json` as the primary artifact, then run `python3 $PPT_MASTER/tools/slide_state_bridge.py render <project_path>` to materialize compatible `svg_output/`
+- `Executor_Consultant` / `Executor_Consultant_Top`: generate all SVG pages first and save to `<project_path>/svg_output/`, then run `python3 $PPT_MASTER/tools/slide_state_bridge.py sync <project_path>`
 
 **Phase 2 - Logic Construction**: Generate speaker notes, save to `<project_path>/notes/total.md`.
 

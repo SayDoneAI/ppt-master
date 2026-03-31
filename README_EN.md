@@ -110,9 +110,47 @@ Current editor capabilities:
 - Multi-slide SVG rendering driven by `slide_state.json`
 - Double-click text editing with Pretext line breaking and overflow detection
 - Element selection, drag move, resize handles, and property-panel editing
+- Diff-based undo / redo and keyboard shortcuts (`⌘/Ctrl+Z`, `⇧⌘/Ctrl+Z` / `Ctrl+Y`, `⌘/Ctrl+S`, `⌘/Ctrl+Enter`)
+- Append template / chart slides by selecting `templates/layouts/*.svg`, `templates/charts/*.svg`, or a template `slide_state.json`
 - SVG / JSON import-export plus `design_patch.json`-style patch recording
+- Local AI handoff bundle export for the current element or slide, intended for Claude Code / Codex skill-command flows, with `design_patch` fallback roundtrip support
 
-> 💡 **Current status**: the editor MVP is usable today, but the default AI Executor still mainly writes SVG directly instead of fully switching to the `slide_state.json` workflow.
+The repository now ships with a formal bridge that turns an existing project's `svg_output/` into a project-level `slide_state.json`, then writes compatible SVG files back for post-processing:
+
+```bash
+python3 tools/slide_state_bridge.py sync <project_path>
+```
+
+To open a project's state directly in the browser editor, visit:
+
+```text
+http://127.0.0.1:5173/?state=/@fs/<absolute_project_path>/slide_state.json
+```
+
+> 💡 **Current status**: the `slide_state + editor + local AI handoff` product line is now largely closed. `Executor_General` can produce `slide_state.json` natively, the editor can continue editing it, and `render` writes compatible SVG back for the existing export pipeline. The consulting Executors still follow the legacy “SVG first, then sync bridge” compatibility path.
+
+### 6. Local AI Handoff (For Claude Code / Codex Local Skill/Command Flows)
+
+If you want Claude Code or Codex to continue editing the current element or slide:
+
+1. Enter a natural-language instruction in the `AI 协作` panel inside the editor
+2. Click `导出 AI Handoff`
+3. The editor will download:
+   - `design_patch.ai-request.json`
+   - `design_patch.ai-handoff.md`
+4. Primary path: place `design_patch.ai-request.json` in the project root, then hand `design_patch.ai-handoff.md` to a local skill / command as the execution note:
+   - Claude Code: [`.claude/commands/ppt-edit.md`](./.claude/commands/ppt-edit.md)
+   - Codex / project-local agent: [`.agent/skills/ppt_master_ai_edit/SKILL.md`](./.agent/skills/ppt_master_ai_edit/SKILL.md)
+5. In this primary path, Claude Code / Codex edits `slide_state.json` directly inside the local repo and then runs `render / validate`; neither the browser editor nor the repo exposes a browser-side or service-side model API.
+6. Compatibility path: if your session only returns patch JSON, you can still take `design_patch.json` or any JSON following the same schema and:
+   - drag it back into the browser editor, or
+   - click `应用 AI Patch` in the `AI 协作` panel
+7. If you use the compatibility path, export/save the updated `slide_state.json`; in either case, run the formal workflow commands afterward:
+
+```bash
+python3 tools/slide_state_bridge.py render <project_path>
+python3 tools/project_manager.py validate <project_path>
+```
 
 ---
 
@@ -170,8 +208,13 @@ User Input (PDF/URL/Markdown)
 [Image_Generator] (When AI generation is selected)
     ↓
 [Executor] - Two-Phase Generation
-    ├── Visual Construction Phase: Generate all SVG pages → svg_output/
+    ├── Executor_General: Generate `slide_state.json` first → `slide_state_bridge.py render` → svg_output/
+    ├── Executor_Consultant / Top: Generate SVG pages first → svg_output/ → `slide_state_bridge.py sync`
     └── Logic Construction Phase: Generate complete script → notes/total.md
+    ↓
+[slide_state bridge]
+    ├── `render`: materialize compatible `svg_output/` from project-level `slide_state.json`
+    └── `sync`: capture `slide_state.json` from existing `svg_output/` and write compatible SVG back
     ↓
 [Post-processing] → total_md_split.py (split notes) → finalize_svg.py → svg_to_pptx.py
     ↓
@@ -196,6 +239,12 @@ python3 tools/project_manager.py init <project_name> --format ppt169
 
 # PDF to Markdown
 python3 tools/pdf_to_md.py <PDF_file>
+
+# Executor_General already produced slide_state.json; render compatible SVG from state
+python3 tools/slide_state_bridge.py render <project_path>
+
+# Legacy SVG-first path: materialize slide_state.json from svg_output/ and write compatible SVG back
+python3 tools/slide_state_bridge.py sync <project_path>
 
 # Post-process SVG
 python3 tools/finalize_svg.py <project_path>
@@ -245,7 +294,7 @@ ppt-master/
 <details>
 <summary><b>Q: What's the difference between the three Executors?</b></summary>
 
-- **Executor_General**: General scenarios, flexible layout
+- **Executor_General**: General scenarios, flexible layout, now state-first by default
 - **Executor_Consultant**: General consulting, data visualization
 - **Executor_Consultant_Top**: Top consulting (MBB level), 5 core techniques
 

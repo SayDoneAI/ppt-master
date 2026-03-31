@@ -40,6 +40,15 @@ class ErrorHelper:
             ],
             'severity': 'error'
         },
+        'state_without_svg_output': {
+            'message': '已检测到 slide_state.json，但尚未渲染 svg_output',
+            'solutions': [
+                '运行: python3 tools/slide_state_bridge.py render <项目路径>',
+                '确认项目根目录的 slide_state.json 已是最新版本',
+                '渲染完成后再执行 finalize_svg.py / svg_to_pptx.py / project_manager.py validate'
+            ],
+            'severity': 'warning'
+        },
         'empty_svg_output': {
             'message': 'svg_output 目录为空',
             'solutions': [

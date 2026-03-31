@@ -1,6 +1,8 @@
 import * as pretext from '@chenglou/pretext'
 import type {
+  AiCommand,
   CircleElement,
+  DesignPatch,
   Element as SlideElement,
   GroupElement,
   ImageElement,
@@ -13,10 +15,25 @@ import type {
   TextElement,
 } from './slide_state.js'
 import {
+  applyDesignPatch,
+  createAiCommand,
+  createAiCommandDownload,
+  createAiCommandPromptDownload,
   createDesignPatchDownload,
   createUpdatePatch,
+  getDesignPatchPrimarySlideIndex,
   hasPatchValueChanged,
+  parseDesignPatchJson,
 } from './design_patch.js'
+import {
+  createHistoryEntry,
+  flattenHistoryOperations,
+  type HistoryEntry,
+} from './history.js'
+import {
+  createAppendSlidesPatch,
+  ensureCompatibleCanvas,
+} from './slide_import.js'
 import type { DownloadArtifact } from './state_io.js'
 import {
   createJsonDownload,
@@ -26,8 +43,8 @@ import {
   isJsonFile,
   isSvgFile,
   parseSlideStateJson,
-  readSvgFiles,
   readSlideStateFile,
+  readSvgFiles,
 } from './state_io.js'
 import { STATE_WATCHER_HMR_EVENT } from './state_sync_events.js'
 import { initPretext, layoutText, slideToSvg } from './state_to_svg.js'
@@ -146,6 +163,8 @@ const canvasScroll = getElement<HTMLDivElement>('canvasScroll')
 const canvasPane = canvasMount.closest<HTMLElement>('.canvas-pane')
 const prevButton = getElement<HTMLButtonElement>('prevSlideBtn')
 const nextButton = getElement<HTMLButtonElement>('nextSlideBtn')
+const undoButton = getElement<HTMLButtonElement>('undoBtn')
+const redoButton = getElement<HTMLButtonElement>('redoBtn')
 const saveJsonButton = getElement<HTMLButtonElement>('saveJsonBtn')
 const exportSvgButton = getElement<HTMLButtonElement>('exportSvgBtn')
 const watchFileButton = getElement<HTMLButtonElement>('watchFileBtn')
@@ -159,6 +178,18 @@ const selectionSummary = getElement<HTMLDivElement>('selectionSummary')
 const selectionEmptyState = getElement<HTMLDivElement>('selectionEmptyState')
 const elementFields = getElement<HTMLFormElement>('elementFields')
 const patchCountBadge = getElement<HTMLDivElement>('patchCountBadge')
+const aiTargetSummary = getElement<HTMLDivElement>('aiTargetSummary')
+const aiInstructionInput = getElement<HTMLTextAreaElement>('aiInstructionInput')
+const exportAiTaskButton = getElement<HTMLButtonElement>('exportAiTaskBtn')
+const applyAiPatchButton = getElement<HTMLButtonElement>('applyAiPatchBtn')
+const aiHandoffStatus = getElement<HTMLDivElement>('aiHandoffStatus')
+const aiPatchFileInput = getElement<HTMLInputElement>('aiPatchFileInput')
+const assetImportSummary = getElement<HTMLDivElement>('assetImportSummary')
+const importTemplateButton = getElement<HTMLButtonElement>('importTemplateBtn')
+const importChartButton = getElement<HTMLButtonElement>('importChartBtn')
+const templateImportInput = getElement<HTMLInputElement>('templateImportInput')
+const chartImportInput = getElement<HTMLInputElement>('chartImportInput')
+const assetLibraryStatus = getElement<HTMLDivElement>('assetLibraryStatus')
 const dropZoneOverlay = getElement<HTMLDivElement>('dropZoneOverlay')
 
 let state = createDemoState()
@@ -173,13 +204,21 @@ let interactionHint: string | null = null
 let pointerSession: PointerInteractionSession | null = null
 let dragDepth = 0
 let patches: PatchOperation[] = []
+let historyPast: HistoryEntry[] = []
+let historyFuture: HistoryEntry[] = []
 let watchedStatePath = getStatePathFromSearch(window.location.search)
 let watchedStateRawSnapshot: string | null = null
 let manualWatchTimer: number | null = null
+let aiHandoffStatusMessage = '输入自然语言后导出本地 AI handoff；优先交给 Claude Code / Codex 在项目内直接修改，若只返回 design_patch.json 也可应用回当前页面。'
+let aiHandoffStatusTone: 'default' | 'error' = 'default'
+let assetLibraryStatusMessage = '支持把模板页或图表 SVG 直接追加到当前项目；导入时会先转为 slide_state，再进入同一套 patch / AI handoff / render 工作流。'
+let assetLibraryStatusTone: 'default' | 'error' = 'default'
 
 bindCanvasBlankInteractions()
 bindInspectorInteractions()
 bindToolbarFileActions()
+bindAiHandoffInteractions()
+bindAssetImportInteractions()
 bindGlobalDropZone()
 bindDevServerStateSync()
 document.addEventListener('pointerdown', handleDocumentPointerDown, true)
@@ -193,6 +232,28 @@ prevButton.addEventListener('click', () => goToSlide(currentSlideIndex - 1))
 nextButton.addEventListener('click', () => goToSlide(currentSlideIndex + 1))
 
 window.addEventListener('keydown', event => {
+  if (isUndoShortcut(event)) {
+    if (isFormField(event.target)) return
+    event.preventDefault()
+    undoLastChange()
+    return
+  }
+
+  if (isRedoShortcut(event)) {
+    if (isFormField(event.target)) return
+    event.preventDefault()
+    redoLastChange()
+    return
+  }
+
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+    if (isFormField(event.target)) return
+    event.preventDefault()
+    if (event.shiftKey) downloadArtifacts(createSvgDownloads(state))
+    else downloadArtifacts([createJsonDownload(state)])
+    return
+  }
+
   if (event.key === 'Escape') {
     if (editingTextId) {
       exitTextEditing()
@@ -209,8 +270,19 @@ window.addEventListener('keydown', event => {
   }
 
   if (isFormField(event.target)) return
-  if (event.key === 'ArrowLeft') goToSlide(currentSlideIndex - 1)
-  if (event.key === 'ArrowRight') goToSlide(currentSlideIndex + 1)
+  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    event.preventDefault()
+    exportAiHandoff()
+    return
+  }
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    goToSlide(currentSlideIndex - 1)
+  }
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    goToSlide(currentSlideIndex + 1)
+  }
 })
 
 function render(): void {
@@ -221,11 +293,14 @@ function render(): void {
   renderThumbnails()
   renderInspector()
   renderPatchCountBadge()
+  renderAiHandoffPanel()
+  renderAssetImportPanel()
   pageIndicator.textContent = `${currentSlideIndex + 1} / ${state.slides.length}`
   prevButton.disabled = currentSlideIndex === 0
   nextButton.disabled = currentSlideIndex === state.slides.length - 1
+  syncHistoryButtons()
   stateSourceBadge.textContent = stateSourceLabel
-  document.title = `PPT Master Editor MVP · ${slide.id}`
+  document.title = `PPT Master Editor · ${slide.id}`
 }
 
 function goToSlide(index: number): void {
@@ -322,6 +397,40 @@ function renderInspector(): void {
   elementFields.innerHTML = fields
     .map(field => renderInspectorField(field, getFieldValue(selected, field.key)))
     .join('')
+}
+
+function renderAiHandoffPanel(): void {
+  const slide = getCurrentSlide()
+  const selected = getSelectedElement()
+  const scopeLabel = selected ? '当前选中元素' : '当前页面'
+  const elementLabel = selected ? selected.id : '页面级'
+  const projectPathHint = inferProjectPathHint(watchedStatePath)
+  const projectLabel = projectPathHint ?? '未绑定本地项目'
+
+  aiTargetSummary.innerHTML = `
+    <div class="selection-summary__meta">
+      <span>${escapeHtml(`范围 · ${scopeLabel}`)}</span>
+      <span>${escapeHtml(`Slide · ${slide.id}`)}</span>
+      <span>${escapeHtml(`目标 · ${elementLabel}`)}</span>
+      <span>${escapeHtml(`项目 · ${projectLabel}`)}</span>
+    </div>
+  `
+
+  exportAiTaskButton.disabled = aiInstructionInput.value.trim().length === 0
+  aiHandoffStatus.textContent = aiHandoffStatusMessage
+  aiHandoffStatus.dataset.tone = aiHandoffStatusTone
+}
+
+function renderAssetImportPanel(): void {
+  assetImportSummary.innerHTML = `
+    <div class="selection-summary__meta">
+      <span>${escapeHtml(`插入位置 · 第 ${currentSlideIndex + 1} 页后`)}</span>
+      <span>${escapeHtml(`当前画布 · ${state.canvas.width} × ${state.canvas.height}`)}</span>
+      <span>导入格式 · SVG / slide_state JSON</span>
+    </div>
+  `
+  assetLibraryStatus.textContent = assetLibraryStatusMessage
+  assetLibraryStatus.dataset.tone = assetLibraryStatusTone
 }
 
 function buildSelectionSummary(element: EditableElement): string {
@@ -471,7 +580,10 @@ function bindInspectorInteractions(): void {
 
     const oldValue = getPatchablePropertyValue(selected, key)
     if (!applyElementUpdate(selected, key, target.value)) return
-    recordPropertyPatch(selected.id, key, oldValue, getPatchablePropertyValue(selected, key))
+    const operation = createPropertyPatch(selected.id, key, oldValue, getPatchablePropertyValue(selected, key))
+    if (operation) {
+      commitPatchOperations([operation], 'human', `修改 ${selected.id}.${key}`)
+    }
 
     interactionHint = null
     syncInspectorPreview(selected)
@@ -482,6 +594,14 @@ function bindInspectorInteractions(): void {
 }
 
 function bindToolbarFileActions(): void {
+  undoButton.addEventListener('click', () => {
+    undoLastChange()
+  })
+
+  redoButton.addEventListener('click', () => {
+    redoLastChange()
+  })
+
   saveJsonButton.addEventListener('click', () => {
     downloadArtifacts([createJsonDownload(state)])
   })
@@ -502,6 +622,60 @@ function bindToolbarFileActions(): void {
     void startManualStateWatch(nextPath).catch(error => {
       console.error(`启动文件监听失败: ${nextPath}`, error)
     })
+  })
+}
+
+function bindAssetImportInteractions(): void {
+  importTemplateButton.addEventListener('click', () => {
+    templateImportInput.click()
+  })
+
+  importChartButton.addEventListener('click', () => {
+    chartImportInput.click()
+  })
+
+  templateImportInput.addEventListener('change', () => {
+    const files = Array.from(templateImportInput.files ?? [])
+    templateImportInput.value = ''
+    if (files.length === 0) return
+    void appendImportedSlidesFromFiles(files, '模板页', true)
+  })
+
+  chartImportInput.addEventListener('change', () => {
+    const files = Array.from(chartImportInput.files ?? [])
+    chartImportInput.value = ''
+    if (files.length === 0) return
+    void appendImportedSlidesFromFiles(files, '图表页', false)
+  })
+}
+
+function bindAiHandoffInteractions(): void {
+  aiInstructionInput.addEventListener('input', () => {
+    aiHandoffStatusTone = 'default'
+    aiHandoffStatusMessage = '输入自然语言后导出本地 AI handoff；优先交给 Claude Code / Codex 在项目内直接修改，若只返回 design_patch.json 也可应用回当前页面。'
+    renderAiHandoffPanel()
+  })
+
+  aiInstructionInput.addEventListener('keydown', event => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault()
+      exportAiHandoff()
+    }
+  })
+
+  exportAiTaskButton.addEventListener('click', () => {
+    exportAiHandoff()
+  })
+
+  applyAiPatchButton.addEventListener('click', () => {
+    aiPatchFileInput.click()
+  })
+
+  aiPatchFileInput.addEventListener('change', () => {
+    const [file] = Array.from(aiPatchFileInput.files ?? [])
+    aiPatchFileInput.value = ''
+    if (!file) return
+    void loadDesignPatchFromFile(file)
   })
 }
 
@@ -536,7 +710,7 @@ function bindGlobalDropZone(): void {
     const files = Array.from(event.dataTransfer?.files ?? [])
     const jsonFile = files.find(file => isJsonFile(file))
     if (jsonFile) {
-      void loadStateFromFile(jsonFile)
+      void loadJsonAssetFromFile(jsonFile)
       return
     }
 
@@ -578,22 +752,202 @@ async function loadInitialStateFromUrl(): Promise<void> {
   }
 }
 
-async function loadStateFromFile(file: File): Promise<void> {
+async function loadJsonAssetFromFile(file: File): Promise<void> {
   try {
-    const nextState = await readSlideStateFile(file)
-    replaceState(nextState, `当前数据：${file.name}`)
+    const rawJson = await file.text()
+
+    try {
+      const designPatch = parseDesignPatchJson(rawJson)
+      handleImportedDesignPatch(designPatch, file.name)
+      return
+    } catch {
+      const nextState = parseSlideStateJson(rawJson)
+      stopManualStateWatch()
+      watchedStatePath = null
+      watchedStateRawSnapshot = null
+      replaceState(nextState, `当前数据：${file.name}`)
+    }
   } catch (error) {
-    console.error(`文件加载 slide_state 失败: ${file.name}`, error)
+    console.error(`文件加载 JSON 失败: ${file.name}`, error)
+    aiHandoffStatusTone = 'error'
+    aiHandoffStatusMessage = `JSON 导入失败：${(error as Error).message}`
+    renderAiHandoffPanel()
+  }
+}
+
+async function loadDesignPatchFromFile(file: File): Promise<void> {
+  try {
+    const designPatch = parseDesignPatchJson(await file.text())
+    handleImportedDesignPatch(designPatch, file.name)
+  } catch (error) {
+    console.error(`design patch 导入失败: ${file.name}`, error)
+    aiHandoffStatusTone = 'error'
+    aiHandoffStatusMessage = `Patch 导入失败：${(error as Error).message}`
+    renderAiHandoffPanel()
   }
 }
 
 async function loadStateFromSvgFiles(files: File[]): Promise<void> {
   try {
     const nextState = await readSvgFiles(files)
+    stopManualStateWatch()
+    watchedStatePath = null
+    watchedStateRawSnapshot = null
     replaceState(nextState, `当前数据：SVG 导入 (${nextState.slides.length} 页)`)
   } catch (error) {
     console.error('SVG 文件导入失败', error)
   }
+}
+
+async function appendImportedSlidesFromFiles(
+  files: File[],
+  label: '模板页' | '图表页',
+  allowJson: boolean,
+): Promise<void> {
+  try {
+    if (editingTextId) exitTextEditing({ shouldRender: false })
+    const importedState = await readImportedSlidesState(files, allowJson)
+    ensureCompatibleCanvas(state.canvas, importedState.canvas)
+
+    stopManualStateWatch()
+    watchedStatePath = null
+    watchedStateRawSnapshot = null
+
+    const insertIndex = currentSlideIndex + 1
+    const operations = createAppendSlidesPatch({
+      state,
+      importedSlides: importedState.slides,
+      insertIndex,
+      source: 'human',
+    })
+
+    if (operations.length === 0) {
+      throw new Error(`未检测到可追加的${label}`)
+    }
+
+    state = applyDesignPatch(state, {
+      timestamp: new Date().toISOString(),
+      source: 'human',
+      operations,
+    })
+    commitPatchOperations(operations, 'human', `追加${label}`)
+    currentSlideIndex = clamp(insertIndex, 0, state.slides.length - 1)
+    stateSourceLabel = `当前数据：已追加${label} (${operations.length} 页)`
+    assetLibraryStatusTone = 'default'
+    assetLibraryStatusMessage = `已追加 ${operations.length} 页${label}，可继续编辑、导出 AI handoff，或直接 render / finalize / 导出 PPT。`
+    interactionHint = `已追加${label}：${operations.length} 页`
+    resetTransientInteractionState({ clearSelection: true, clearHint: false })
+    render()
+  } catch (error) {
+    console.error(`${label} 导入失败`, error)
+    assetLibraryStatusTone = 'error'
+    assetLibraryStatusMessage = `${label}导入失败：${(error as Error).message}`
+    renderAssetImportPanel()
+  }
+}
+
+async function readImportedSlidesState(files: File[], allowJson: boolean): Promise<SlideState> {
+  if (allowJson) {
+    const jsonFile = files.find(file => isJsonFile(file))
+    if (jsonFile) return readSlideStateFile(jsonFile)
+  }
+
+  const svgFiles = files.filter(file => isSvgFile(file))
+  if (svgFiles.length === 0) {
+    throw new Error('请选择 .svg 文件，或使用 slide_state JSON 模板')
+  }
+
+  return readSvgFiles(svgFiles)
+}
+
+function exportAiHandoff(): void {
+  const instruction = aiInstructionInput.value.trim()
+  if (!instruction) {
+    aiInstructionInput.focus()
+    aiHandoffStatusTone = 'error'
+    aiHandoffStatusMessage = '请先输入 AI 指令，再导出本地 AI handoff。'
+    renderAiHandoffPanel()
+    return
+  }
+
+  const aiCommand = createEditorAiCommand(instruction)
+  const projectPathHint = inferProjectPathHint(watchedStatePath)
+  const stateFilePathHint = inferStateFilePathHint(watchedStatePath)
+
+  downloadArtifacts([
+    createAiCommandDownload(aiCommand, patches),
+    createAiCommandPromptDownload(aiCommand, patches, {
+      projectPathHint,
+      stateFilePathHint,
+    }),
+  ])
+
+  interactionHint = aiCommand.scope === 'selected-element'
+    ? `已导出本地 AI handoff，可交给 Claude Code / Codex 在项目内修改元素 ${aiCommand.elementId}`
+    : '已导出本地 AI handoff，可交给 Claude Code / Codex 在项目内修改当前页面'
+  aiHandoffStatusTone = 'default'
+  aiHandoffStatusMessage = aiCommand.scope === 'selected-element'
+    ? `已导出本地 AI handoff，目标元素 ${aiCommand.elementId}。Claude Code / Codex 可直接修改项目；若只返回 design_patch.json，也可拖入或点击“应用 AI Patch”。`
+    : '已导出页面级本地 AI handoff。Claude Code / Codex 可直接修改项目；若只返回 design_patch.json，也可拖入或点击“应用 AI Patch”。'
+
+  renderInspector()
+  renderAiHandoffPanel()
+}
+
+function handleImportedDesignPatch(designPatch: DesignPatch, sourceLabel: string): void {
+  if (designPatch.operations.length === 0) {
+    if (designPatch.aiCommand) {
+      hydrateAiCommandFromPatch(designPatch.aiCommand)
+      aiHandoffStatusTone = 'default'
+      aiHandoffStatusMessage = `已载入 AI handoff 请求：${describeAiScope(designPatch.aiCommand)}`
+      render()
+      return
+    }
+
+    throw new Error('design_patch 不包含可应用的 operations')
+  }
+
+  stopManualStateWatch()
+  watchedStatePath = null
+  watchedStateRawSnapshot = null
+  if (editingTextId) exitTextEditing({ shouldRender: false })
+
+  const nextState = applyDesignPatch(state, designPatch)
+  state = nextState
+  stateSourceLabel = `当前数据：已应用 ${sourceLabel}`
+  commitPatchOperations(
+    designPatch.operations.map(operation => cloneSerializableValue(operation)),
+    designPatch.source,
+    `应用 ${sourceLabel}`,
+  )
+
+  const targetSlideIndex = getDesignPatchPrimarySlideIndex(designPatch)
+  if (targetSlideIndex !== null) {
+    currentSlideIndex = clamp(targetSlideIndex, 0, nextState.slides.length - 1)
+  }
+
+  if (designPatch.aiCommand) {
+    hydrateAiCommandFromPatch(designPatch.aiCommand)
+  }
+
+  interactionHint = `${designPatch.source === 'ai' ? 'AI' : 'Patch'} 已应用：${designPatch.operations.length} 条操作`
+  resetTransientInteractionState({ clearSelection: false, clearHint: false })
+
+  aiHandoffStatusTone = 'default'
+  aiHandoffStatusMessage = `已应用 ${designPatch.operations.length} 条 Patch：${sourceLabel}`
+  render()
+}
+
+function hydrateAiCommandFromPatch(aiCommand: AiCommand): void {
+  currentSlideIndex = clamp(aiCommand.slideIndex, 0, state.slides.length - 1)
+  selectedElementId = aiCommand.elementId
+  aiInstructionInput.value = aiCommand.instruction
+}
+
+function describeAiScope(aiCommand: AiCommand): string {
+  return aiCommand.scope === 'selected-element' && aiCommand.elementId
+    ? `元素 ${aiCommand.elementId} @ ${aiCommand.slideId}`
+    : `页面 ${aiCommand.slideId}`
 }
 
 function bindDevServerStateSync(): void {
@@ -676,18 +1030,94 @@ function replaceState(nextState: SlideState, sourceLabel: string): void {
 
   state = nextState
   stateSourceLabel = sourceLabel
+  historyPast = []
+  historyFuture = []
   patches = []
   currentSlideIndex = 0
+  assetLibraryStatusTone = 'default'
+  assetLibraryStatusMessage = '支持把模板页或图表 SVG 直接追加到当前项目；导入时会先转为 slide_state，再进入同一套 patch / AI handoff / render 工作流。'
+  resetTransientInteractionState({ clearSelection: true, clearHint: true })
+  render()
+}
+
+function commitPatchOperations(
+  operations: PatchOperation[],
+  source: 'human' | 'ai',
+  label: string,
+): void {
+  if (operations.length === 0) return
+  historyPast.push(createHistoryEntry(operations, source, label))
+  historyFuture = []
+  patches = flattenHistoryOperations(historyPast)
+  renderPatchCountBadge()
+  syncHistoryButtons()
+}
+
+function undoLastChange(): void {
+  const entry = historyPast.pop()
+  if (!entry) return
+
+  if (editingTextId) exitTextEditing({ shouldRender: false })
+  state = applyDesignPatch(state, entry.inversePatch)
+  historyFuture.unshift(entry)
+  patches = flattenHistoryOperations(historyPast)
+
+  const targetSlideIndex = getDesignPatchPrimarySlideIndex(entry.inversePatch)
+  if (targetSlideIndex !== null) {
+    currentSlideIndex = clamp(targetSlideIndex, 0, state.slides.length - 1)
+  } else {
+    currentSlideIndex = clamp(currentSlideIndex, 0, state.slides.length - 1)
+  }
+
+  stateSourceLabel = `当前数据：已撤销 ${entry.label}`
+  interactionHint = `已撤销：${entry.label}`
+  aiHandoffStatusTone = 'default'
+  aiHandoffStatusMessage = `已撤销一步：${entry.label}`
+  resetTransientInteractionState({ clearSelection: false, clearHint: false })
+  render()
+}
+
+function redoLastChange(): void {
+  const entry = historyFuture.shift()
+  if (!entry) return
+
+  if (editingTextId) exitTextEditing({ shouldRender: false })
+  state = applyDesignPatch(state, entry.forwardPatch)
+  historyPast.push(entry)
+  patches = flattenHistoryOperations(historyPast)
+
+  const targetSlideIndex = getDesignPatchPrimarySlideIndex(entry.forwardPatch)
+  if (targetSlideIndex !== null) {
+    currentSlideIndex = clamp(targetSlideIndex, 0, state.slides.length - 1)
+  } else {
+    currentSlideIndex = clamp(currentSlideIndex, 0, state.slides.length - 1)
+  }
+
+  stateSourceLabel = `当前数据：已重做 ${entry.label}`
+  interactionHint = `已重做：${entry.label}`
+  aiHandoffStatusTone = 'default'
+  aiHandoffStatusMessage = `已重做一步：${entry.label}`
+  resetTransientInteractionState({ clearSelection: false, clearHint: false })
+  render()
+}
+
+function resetTransientInteractionState(
+  options: { clearSelection?: boolean; clearHint?: boolean } = {},
+): void {
   hoveredElementId = null
-  selectedElementId = null
   editingTextId = null
   activeTextEditor = null
   suppressNextCanvasClick = false
-  interactionHint = null
   pointerSession = null
   dragDepth = 0
   setDropZoneActive(false)
-  render()
+  if (options.clearSelection) selectedElementId = null
+  if (options.clearHint ?? true) interactionHint = null
+}
+
+function syncHistoryButtons(): void {
+  undoButton.disabled = historyPast.length === 0
+  redoButton.disabled = historyFuture.length === 0
 }
 
 function downloadArtifacts(artifacts: DownloadArtifact[]): void {
@@ -873,7 +1303,10 @@ function handleDocumentPointerUp(event: PointerEvent): void {
 
   const element = findElementById(getCurrentSlide().elements, session.elementId)
   if (element && isTransformableElement(element)) {
-    recordElementPatchDiffs(session.initialElement, element, getPatchKeysForElement(element))
+    const operations = recordElementPatchDiffs(session.initialElement, element, getPatchKeysForElement(element))
+    if (operations.length > 0) {
+      commitPatchOperations(operations, 'human', `${session.kind === 'move' ? '移动' : '缩放'} ${element.id}`)
+    }
   }
 
   suppressNextCanvasClick = true
@@ -1072,6 +1505,50 @@ function getSelectedElement(): EditableElement | null {
   return findElementById(getCurrentSlide().elements, selectedElementId)
 }
 
+function createEditorAiCommand(instruction: string): AiCommand {
+  const selected = getSelectedElement()
+  return createAiCommand({
+    state,
+    slideIndex: currentSlideIndex,
+    instruction,
+    scope: selected ? 'selected-element' : 'current-slide',
+    elementId: selected?.id ?? null,
+  })
+}
+
+function inferStateFilePathHint(path: string | null): string | null {
+  if (!path) return null
+
+  const trimmedPath = path.trim()
+  if (!trimmedPath || /^https?:\/\//i.test(trimmedPath)) return null
+
+  const withoutQuery = trimmedPath.split('?')[0]?.split('#')[0] ?? trimmedPath
+  let normalizedPath = withoutQuery.startsWith('/@fs/')
+    ? withoutQuery.slice('/@fs'.length)
+    : withoutQuery
+
+  try {
+    normalizedPath = decodeURIComponent(normalizedPath)
+  } catch {
+    // ignore decode failures and use raw path
+  }
+
+  if (/^\/[A-Za-z]:\//.test(normalizedPath)) {
+    normalizedPath = normalizedPath.slice(1)
+  }
+
+  return normalizedPath.endsWith('.json') ? normalizedPath : null
+}
+
+function inferProjectPathHint(path: string | null): string | null {
+  const stateFilePath = inferStateFilePathHint(path)
+  if (!stateFilePath) return null
+
+  const slashIndex = stateFilePath.lastIndexOf('/')
+  if (slashIndex <= 0) return null
+  return stateFilePath.slice(0, slashIndex)
+}
+
 function findFirstText(elements: SlideElement[]): string | null {
   for (const element of elements) {
     if (element.type === 'text') return element.text
@@ -1139,38 +1616,40 @@ function getPatchablePropertyValue(element: SupportedEditableElement, key: strin
 }
 
 function renderPatchCountBadge(): void {
-  patchCountBadge.textContent = `${patches.length} 次编辑`
+  patchCountBadge.textContent = `${patches.length} 条已应用 Patch`
 }
 
-function recordPropertyPatch(
+function createPropertyPatch(
   elementId: string,
   property: string,
   oldValue: unknown,
   newValue: unknown,
-): void {
-  if (!hasPatchValueChanged(oldValue, newValue)) return
+): PatchOperation | null {
+  if (!hasPatchValueChanged(oldValue, newValue)) return null
 
-  patches.push(createUpdatePatch({
+  return createUpdatePatch({
     slideIndex: currentSlideIndex,
     elementId,
     property,
     value: newValue,
     oldValue,
     source: 'human',
-  }))
-  renderPatchCountBadge()
+  })
 }
 
 function recordElementPatchDiffs(
   previous: TransformableElement,
   next: TransformableElement,
   keys: string[],
-): void {
+): PatchOperation[] {
+  const operations: PatchOperation[] = []
   for (const key of keys) {
     const oldValue = cloneSerializableValue((previous as unknown as Record<string, unknown>)[key])
     const newValue = cloneSerializableValue((next as unknown as Record<string, unknown>)[key])
-    recordPropertyPatch(next.id, key, oldValue, newValue)
+    const operation = createPropertyPatch(next.id, key, oldValue, newValue)
+    if (operation) operations.push(operation)
   }
+  return operations
 }
 
 function getPatchKeysForElement(element: TransformableElement): string[] {
@@ -1738,6 +2217,18 @@ function toSlideIdFromPath(path: string): string {
   return fileName.replace(/\.[^.]+$/, '').trim().replace(/\s+/g, '_')
 }
 
+function isUndoShortcut(event: KeyboardEvent): boolean {
+  if (!(event.metaKey || event.ctrlKey)) return false
+  if (event.shiftKey) return false
+  return event.key.toLowerCase() === 'z'
+}
+
+function isRedoShortcut(event: KeyboardEvent): boolean {
+  if (!(event.metaKey || event.ctrlKey)) return false
+  const lowerKey = event.key.toLowerCase()
+  return lowerKey === 'y' || (lowerKey === 'z' && event.shiftKey)
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
@@ -1886,7 +2377,10 @@ function exitTextEditing(options: { shouldRender?: boolean } = {}): void {
 
   const currentElement = findElementById(getCurrentSlide().elements, editor.elementId)
   if (currentElement?.type === 'text') {
-    recordPropertyPatch(currentElement.id, 'text', editor.initialText, currentElement.text)
+    const operation = createPropertyPatch(currentElement.id, 'text', editor.initialText, currentElement.text)
+    if (operation) {
+      commitPatchOperations([operation], 'human', `编辑文本 ${currentElement.id}`)
+    }
   }
 
   restoreHiddenCanvasNodes(editor.hiddenNodes)

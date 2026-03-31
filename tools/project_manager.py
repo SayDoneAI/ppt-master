@@ -108,6 +108,7 @@ class ProjectManager:
                 f"- 画布格式: {normalized_format}\n"
                 f"- 创建日期: {date_str}\n\n"
                 "## 目录\n\n"
+                "- `slide_state.json`: 通用执行师的原生第一产物（可选，state-first 路径）\n"
                 "- `svg_output/`: 原始 SVG 输出\n"
                 "- `svg_final/`: 后处理后的 SVG\n"
                 "- `images/`: 图片资源\n"
@@ -164,6 +165,7 @@ class ProjectManager:
             'path': shared.get('path', str(project_path)),
             'exists': shared.get('exists', False),
             'svg_count': shared.get('svg_count', 0),
+            'has_slide_state': shared.get('has_slide_state', False),
             'has_spec': shared.get('has_spec', False),
             'canvas_format': shared.get('format_name', '未知格式'),
             'create_date': shared.get('date_formatted', '未知日期')
@@ -208,7 +210,9 @@ def main():
             print(f"[OK] 项目已创建: {project_path}")
             print("\n下一步:")
             print("1. 生成并保存 设计规范与内容大纲.md (请参考 templates/design_spec_reference.md)")
-            print("2. 将 SVG 文件放入 svg_output/ 目录")
+            print("2. 选择执行路径：")
+            print("   - 通用灵活（state-first）：生成 slide_state.json，再运行 python3 tools/slide_state_bridge.py render <项目路径>")
+            print("   - 咨询风格（兼容路径）：将 SVG 文件放入 svg_output/ 目录，再运行 python3 tools/slide_state_bridge.py sync <项目路径>")
         except Exception as e:
             print(f"[ERROR] 创建失败: {e}")
             sys.exit(1)
@@ -257,6 +261,7 @@ def main():
         print(f"路径: {info['path']}")
         print(f"存在: {'是' if info['exists'] else '否'}")
         print(f"SVG 文件数: {info['svg_count']}")
+        print(f"slide_state: {'存在' if info['has_slide_state'] else '缺失'}")
         print(f"设计规范: {'存在' if info['has_spec'] else '缺失'}")
         print(f"画布格式: {info['canvas_format']}")
         print(f"创建日期: {info['create_date']}")

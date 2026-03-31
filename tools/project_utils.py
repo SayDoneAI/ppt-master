@@ -169,6 +169,7 @@ def get_project_info(project_path: str) -> Dict:
         'svg_count': 0,
         'has_spec': False,
         'has_readme': False,
+        'has_slide_state': False,
         'has_source': False,
         'spec_file': None,
         'svg_files': []
@@ -179,6 +180,7 @@ def get_project_info(project_path: str) -> Dict:
 
     # 检查 README.md
     info['has_readme'] = (project_path / 'README.md').exists()
+    info['has_slide_state'] = (project_path / 'slide_state.json').exists()
 
     # 检查设计规范文件（多个可能的名称）
     spec_files = ['设计规范与内容大纲.md', 'design_specification.md', '设计规范.md']
@@ -257,24 +259,37 @@ def validate_project_structure(project_path: str, verbose: bool = False) -> Tupl
             msg += "\n" + ErrorHelper.format_error_message('missing_spec')
         warnings.append(msg)
 
-    # 检查 svg_output 目录
+    # 检查 svg_output 目录 / state-first 项目
     svg_output = project_path / 'svg_output'
+    slide_state_file = project_path / 'slide_state.json'
+    has_slide_state = slide_state_file.exists()
     if not svg_output.exists():
-        msg = "缺少 svg_output 目录"
-        if use_helper and verbose:
-            msg += "\n" + \
-                ErrorHelper.format_error_message('missing_svg_output')
-        errors.append(msg)
+        if has_slide_state:
+            msg = "检测到 slide_state.json，但尚未渲染 svg_output/；请运行 `python3 tools/slide_state_bridge.py render <项目路径>`"
+            if use_helper and verbose:
+                msg += "\n" + ErrorHelper.format_error_message('state_without_svg_output')
+            warnings.append(msg)
+        else:
+            msg = "缺少 svg_output 目录"
+            if use_helper and verbose:
+                msg += "\n" + \
+                    ErrorHelper.format_error_message('missing_svg_output')
+            errors.append(msg)
     elif not svg_output.is_dir():
         errors.append("svg_output 不是目录")
     else:
         # 检查是否有 SVG 文件
         svg_files = list(svg_output.glob('*.svg'))
         if not svg_files:
-            msg = "svg_output 目录为空，没有 SVG 文件"
-            if use_helper and verbose:
-                msg += "\n" + \
-                    ErrorHelper.format_error_message('empty_svg_output')
+            if has_slide_state:
+                msg = "svg_output 目录为空，但已检测到 slide_state.json；请运行 `python3 tools/slide_state_bridge.py render <项目路径>`"
+                if use_helper and verbose:
+                    msg += "\n" + ErrorHelper.format_error_message('state_without_svg_output')
+            else:
+                msg = "svg_output 目录为空，没有 SVG 文件"
+                if use_helper and verbose:
+                    msg += "\n" + \
+                        ErrorHelper.format_error_message('empty_svg_output')
             warnings.append(msg)
         else:
             # 验证 SVG 文件命名（与 project_manager.py 保持一致）
@@ -363,12 +378,13 @@ def find_all_projects(base_dir: str) -> List[Path]:
     projects = []
     for item in base_path.iterdir():
         if item.is_dir() and not item.name.startswith('.'):
-            # 检查是否是有效的项目目录（包含 svg_output 或设计规范）
+            # 检查是否是有效的项目目录（包含 svg_output、slide_state 或设计规范）
             has_svg_output = (item / 'svg_output').exists()
+            has_slide_state = (item / 'slide_state.json').exists()
             has_spec = any((item / f).exists() for f in
                            ['设计规范与内容大纲.md', 'design_specification.md', '设计规范.md'])
 
-            if has_svg_output or has_spec:
+            if has_svg_output or has_slide_state or has_spec:
                 projects.append(item)
 
     return sorted(projects)

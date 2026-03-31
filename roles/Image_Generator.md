@@ -13,7 +13,7 @@
 | **独立使用** | 直接说明图片需求 | 生成单张或多张 AI 图片 |
 | **流程中使用** | `generate-ppt` 选择 AI 生成图片 | 为项目批量生成图片资源 |
 
-> ⏭️ **流程中下一步**：Executor 生成 SVG
+> ⏭️ **流程中下一步**：Executor 生成主产物（`slide_state.json` 或 SVG）
 
 ---
 
@@ -570,7 +570,7 @@ high quality 4K, professional presentation background
 | cover_bg.png | 背景图   | 1920×1080 | ✅ 已生成 |
 | product.png  | 实景照片 | 600×400   | ✅ 已生成 |
 
-**下一步**: 切换到 Executor 角色开始生成 SVG
+**下一步**: 切换到 Executor 角色开始生成主产物（`slide_state.json` 或 SVG）
 ```
 
 ---

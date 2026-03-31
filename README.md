@@ -110,9 +110,47 @@ npm run dev
 - 基于 `slide_state.json` 的多页 SVG 渲染
 - 文本双击编辑，使用 Pretext 实时断行与溢出检测
 - 元素选中、拖拽移动、手柄缩放、属性面板编辑
+- 基于 diff patch 的撤销 / 重做与快捷键（`⌘/Ctrl+Z`、`⇧⌘/Ctrl+Z` / `Ctrl+Y`、`⌘/Ctrl+S`、`⌘/Ctrl+Enter`）
+- 追加导入模板页 / 图表页：可直接选择 `templates/layouts/*.svg`、`templates/charts/*.svg` 或模板 `slide_state.json`
 - 导入/导出 SVG、JSON，并记录 `design_patch.json` 风格 patch
+- 针对当前选中元素或整页导出本地 AI handoff bundle，供 Claude Code / Codex skill/command 消费，并保留 `design_patch` 回流能力
 
-> 💡 **当前阶段**：编辑器 MVP 已可用，但默认 AI Executor 仍以直接产出 SVG 为主，尚未完全切换到 `slide_state.json` 工作流。
+项目工作流现已提供正式 bridge，可把现有项目的 `svg_output/` 收敛为项目根目录的 `slide_state.json`，并继续回写兼容的 SVG：
+
+```bash
+python3 tools/slide_state_bridge.py sync <项目路径>
+```
+
+如需直接在浏览器中加载某个项目的 state，可访问：
+
+```text
+http://127.0.0.1:5173/?state=/@fs/<项目绝对路径>/slide_state.json
+```
+
+> 💡 **当前阶段**：`slide_state + 编辑器 + 本地 AI handoff` 主线已基本收口。`Executor_General` 直接产出 `slide_state.json` 后可由编辑器继续编辑，再通过 `render` 回写兼容 SVG；咨询类 Executor 仍走“先 SVG、后 sync bridge”的兼容路径。
+
+### 6. 使用本地 AI Handoff（给 Claude Code / Codex，本地 skill/command 路径）
+
+如果你想把当前选中元素或整页交给 Claude Code / Codex 继续修改：
+
+1. 在右侧 `AI 协作` 面板输入自然语言指令
+2. 点击 `导出 AI Handoff`
+3. 编辑器会下载：
+   - `design_patch.ai-request.json`
+   - `design_patch.ai-handoff.md`
+4. 官方路径：将 `design_patch.ai-request.json` 放到项目根目录，并把 `design_patch.ai-handoff.md` 作为执行说明交给本地 skill / command：
+   - Claude Code: [`.claude/commands/ppt-edit.md`](./.claude/commands/ppt-edit.md)
+   - Codex / 项目内 agent: [`.agent/skills/ppt_master_ai_edit/SKILL.md`](./.agent/skills/ppt_master_ai_edit/SKILL.md)
+5. 这条路径会由 Claude Code / Codex 在本地仓库里直接修改 `slide_state.json`，然后执行 `render / validate`；浏览器编辑器和仓库本身都不提供浏览器直连或服务端 API。
+6. 兼容路径：如果你当前使用的是只返回 patch JSON 的会话，也可以把 AI 返回的 `design_patch.json` 或同 schema JSON：
+   - 直接拖回浏览器编辑器，或
+   - 点击右侧 `AI 协作` 面板中的 `应用 AI Patch`
+7. 若走兼容路径，应用完成后再导出/保存最新 `slide_state.json`；无论哪条路径，回到正式工作流时都运行：
+
+```bash
+python3 tools/slide_state_bridge.py render <项目路径>
+python3 tools/project_manager.py validate <项目路径>
+```
 
 ---
 
@@ -170,8 +208,13 @@ npm run dev
 [Image_Generator] 图片生成师（当选择 AI 生成时）
     ↓
 [Executor] 执行师 - 分阶段生成
-    ├── 视觉构建阶段：连续生成所有 SVG 页面 → svg_output/
+    ├── Executor_General：先生成 `slide_state.json` → `slide_state_bridge.py render` → svg_output/
+    ├── Executor_Consultant / Top：先生成 SVG 页面 → svg_output/ → `slide_state_bridge.py sync`
     └── 逻辑构建阶段：生成完整讲稿 → notes/total.md
+    ↓
+[slide_state bridge]
+    ├── `render`：从项目级 `slide_state.json` 回写兼容 `svg_output/`
+    └── `sync`：从现有 `svg_output/` 收敛 `slide_state.json` 并回写兼容 SVG
     ↓
 [后处理] → total_md_split.py（拆分讲稿）→ finalize_svg.py → svg_to_pptx.py
     ↓
@@ -196,6 +239,12 @@ python3 tools/project_manager.py init <项目名> --format ppt169
 
 # PDF 转 Markdown
 python3 tools/pdf_to_md.py <PDF文件>
+
+# Executor_General 已直接生成 slide_state.json，仅从 state 回写兼容 SVG
+python3 tools/slide_state_bridge.py render <项目路径>
+
+# 现有 SVG-first 路径：将 svg_output 收敛为 slide_state.json，并回写兼容 SVG
+python3 tools/slide_state_bridge.py sync <项目路径>
 
 # 后处理 SVG
 python3 tools/finalize_svg.py <项目路径>
@@ -245,7 +294,7 @@ ppt-master/
 <details>
 <summary><b>Q: 三种执行师有什么区别？</b></summary>
 
-- **Executor_General**: 通用场景，灵活布局
+- **Executor_General**: 通用场景，灵活布局，默认先产出 `slide_state.json`
 - **Executor_Consultant**: 一般咨询，数据可视化
 - **Executor_Consultant_Top**: 顶级咨询（MBB 级），5 大核心技巧
 

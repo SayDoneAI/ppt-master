@@ -14,7 +14,9 @@ graph TB
     subgraph Project["📁 项目管理"]
         B1[project_manager.py]
         B2[project_utils.py]
+        B3[slide_state_bridge.py]
         B1 --> B2
+        B3 --> B2
     end
     
     subgraph Finalize["⚙️ 后处理 (finalize_svg.py)"]
@@ -54,7 +56,7 @@ graph TB
     
     A1 --> B1
     A2 --> B1
-    B1 -->|svg_output/| C0
+    B1 -->|slide_state.json / svg_output| C0
     C0 -->|svg_final/| D1
     D1 -->|.pptx| Output[📊 PowerPoint]
 ```
@@ -66,7 +68,9 @@ graph TB
                     ↓
               [project_manager init]
                     ↓
-              AI 生成 SVG → svg_output/
+        AI 生成 `slide_state.json` / SVG
+                    ↓
+        [slide_state_bridge.py] → slide_state.json ↔ svg_output/
                     ↓
               [finalize_svg] ← 聚合 6 个子工具
                     ↓
@@ -81,6 +85,7 @@ graph TB
 |------|------|------|
 | **输入转换** | `pdf_to_md.py`, `web_to_md.py/.cjs` | 将 PDF/网页转为 Markdown |
 | **项目管理** | `project_manager.py` | 创建、验证项目 |
+| **状态桥接** | `slide_state_bridge.py` | `svg_output/` ↔ `slide_state.json` 正式桥接 |
 | **后处理** | `finalize_svg.py` ⭐ | 统一入口，调用下方 6 个工具 |
 | ↳ 子工具 | `embed_icons.py` | 嵌入图标占位符 |
 | ↳ 子工具 | `crop_images.py` | 智能裁剪图片 |
@@ -97,6 +102,43 @@ graph TB
 ---
 
 ## 工具列表
+
+### 0.8. slide_state_bridge.py — 项目级 `slide_state` 桥接工具
+
+把当前主工作流真正接到 `slide_state.json`：
+
+- 从现有 `svg_output/` 或 `svg_final/` 生成项目级 `slide_state.json`
+- 从 `slide_state.json` 回写兼容的 `svg_output/`
+- 让浏览器编辑器、AI 与现有 `finalize_svg.py` / `svg_to_pptx.py` 共用一条正式链路
+
+**常用命令**:
+
+```bash
+# Executor_General 已直接生成 slide_state.json，仅从 state 回写 svg_output/
+python3 tools/slide_state_bridge.py render <项目路径>
+
+# 现有 SVG-first Executor 已生成 svg_output/，将其收敛为 slide_state.json 并回写兼容 SVG
+python3 tools/slide_state_bridge.py sync <项目路径>
+
+# 仅从现有 svg_output/ 生成 slide_state.json
+python3 tools/slide_state_bridge.py capture <项目路径>
+```
+
+**可选参数**:
+
+```bash
+python3 tools/slide_state_bridge.py sync <项目路径> --source-dir svg_final
+python3 tools/slide_state_bridge.py render <项目路径> --output-dir svg_output
+python3 tools/slide_state_bridge.py capture <项目路径> --state-file slide_state.json
+```
+
+**说明**:
+
+- 默认优先使用 Bun 直接执行 `editor/src/cli.ts`
+- 如本机没有 Bun，会自动 fallback 到 `npm run build` + `node editor/dist/cli.js`
+- CLI 侧当前使用与编辑器一致的 `slide_state` schema，并在无浏览器排版环境时退回现有 fallback 文本断行逻辑
+
+---
 
 ### 0. pdf_to_md.py — PDF 转 Markdown 工具（推荐首选）
 
@@ -1269,8 +1311,10 @@ python3 tools/embed_icons.py --dry-run svg_output/*.svg
 2. **编辑设计规范**
    编辑生成的 `设计规范与内容大纲.md` 文件
 
-3. **生成 SVG 文件**
-   使用 AI 角色（Strategist → Executor → Optimizer）生成 SVG 并保存到 `svg_output/`
+3. **生成主产物**
+   使用 AI 角色（Strategist → Executor → Optimizer）生成主产物：
+   - `Executor_General`：先写项目级 `slide_state.json`，再执行 `python3 tools/slide_state_bridge.py render <项目路径>`
+   - `Executor_Consultant` / `Executor_Consultant_Top`：继续生成 SVG 并保存到 `svg_output/`，再执行 `python3 tools/slide_state_bridge.py sync <项目路径>`
 
 4. **后处理（默认执行全部）**
 

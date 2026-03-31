@@ -11,7 +11,7 @@
 | **策略师** | [Strategist.md](./Strategist.md) | 八项确认 + 设计规范 | 项目启动时（必须） |
 | **模板设计师** | [Template_Designer.md](./Template_Designer.md) | 生成页面模板 | 使用 `/create-template` 工作流 |
 | **图片生成师** | [Image_Generator.md](./Image_Generator.md) | AI 图片生成 | 图片方式含「C) AI 生成」 |
-| **通用执行师** | [Executor_General.md](./Executor_General.md) | 通用灵活风格 SVG | 选择「A) 通用灵活」 |
+| **通用执行师** | [Executor_General.md](./Executor_General.md) | 通用灵活风格 `slide_state.json` + SVG（默认 state-first） | 选择「A) 通用灵活」 |
 | **咨询执行师** | [Executor_Consultant.md](./Executor_Consultant.md) | 一般咨询风格 SVG | 选择「B) 一般咨询」 |
 | **顶级咨询执行师** | [Executor_Consultant_Top.md](./Executor_Consultant_Top.md) | MBB 级咨询风格 SVG | 选择「C) 顶级咨询」 |
 | **CRAP 优化师** | [Optimizer_CRAP.md](./Optimizer_CRAP.md) | 视觉质量优化 | 用户要求优化（可选） |

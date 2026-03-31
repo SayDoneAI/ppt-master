@@ -24,7 +24,7 @@
 ## 工作流概览
 
 ```
-源文档 → 创建项目 → 模板选项 → Strategist → [Image_Generator] → Executor → 后处理 → 导出
+源文档 → 创建项目 → 模板选项 → Strategist → [Image_Generator] → Executor → slide_state bridge → 后处理 → 导出
 ```
 
 ---
@@ -235,36 +235,64 @@ cp templates/layouts/<模板名>/*.jpeg <项目路径>/images/ 2>/dev/null || tr
    ```
 
 2. **【视觉构建阶段】**：
-   - 批量生成 SVG 页面
-   - 保存到 `<项目路径>/svg_output/`
+   - `Executor_General`（通用灵活，当前正式原生路径）：
+     - 生成/更新 `<项目路径>/slide_state.json` 作为第一产物
+     - `slides[].id` 直接对应最终 SVG 文件名 stem
+     - 运行 `python3 tools/slide_state_bridge.py render <项目路径>` 回写兼容 `svg_output/`
+   - `Executor_Consultant` / `Executor_Consultant_Top`（当前兼容路径）：
+     - 批量生成 SVG 页面
+     - 保存到 `<项目路径>/svg_output/`
 
 3. **【逻辑构建阶段】**（必须）：
    - 生成完整演讲备注文稿
    - 保存到 `<项目路径>/notes/total.md`
 
-4. **阶段检查点**：
+4. **【slide_state 收敛阶段】**（当前正式工作流默认执行）：
+   - `Executor_General` 路径：运行 `python3 tools/slide_state_bridge.py render <项目路径>`
+   - `Executor_Consultant` / `Executor_Consultant_Top` 路径：运行 `python3 tools/slide_state_bridge.py sync <项目路径>`
+   - 目标是确保 `<项目路径>/slide_state.json` 与兼容的 `svg_output/` 同步存在
+
+5. **阶段检查点**：
    ```markdown
    ## ✅ Executor 阶段完成
    ### 视觉构建阶段
-   - [x] 所有 SVG 页面已生成到 svg_output/
+   - [x] 已生成项目级 `slide_state.json`（General 路径）或原始 `svg_output/`（Consultant 路径）
    
    ### 逻辑构建阶段
    - [x] 已生成完整演讲备注 notes/total.md
+
+   ### slide_state 收敛阶段
+   - [x] 已生成/更新项目级 `slide_state.json`
+   - [x] 已从 `slide_state.json` 回写兼容的 `svg_output/`
    ```
 
 ---
 
 ## 阶段七：后处理与导出（自动执行）
 
-> ⚠️ **必须按顺序执行以下三个命令，不可省略或替换！**
+> ⚠️ **必须按顺序执行以下四个命令，不可省略或替换！**
 
-### 步骤 1：拆分演讲备注
+### 步骤 1：slide_state 收敛
+// turbo
+```bash
+# Executor_General 的 state-first 正式路径
+python3 tools/slide_state_bridge.py render <项目路径>
+```
+
+- `Executor_General` 默认先产出 `slide_state.json`，这里执行 `render`
+- 现有 `Executor_Consultant` / `Executor_Consultant_Top` 仍先写 `svg_output/`，此时改用：
+  // turbo
+  ```bash
+  python3 tools/slide_state_bridge.py sync <项目路径>
+  ```
+
+### 步骤 2：拆分演讲备注
 // turbo
 ```bash
 python3 tools/total_md_split.py <项目路径>
 ```
 
-### 步骤 2：SVG 后处理
+### 步骤 3：SVG 后处理
 // turbo
 ```bash
 python3 tools/finalize_svg.py <项目路径>
@@ -280,7 +308,7 @@ python3 tools/finalize_svg.py <项目路径>
 
 > ❌ **禁止**：使用 `cp` 命令替代此步骤！
 
-### 步骤 3：导出 PPTX
+### 步骤 4：导出 PPTX
 // turbo
 ```bash
 python3 tools/svg_to_pptx.py <项目路径> -s final
@@ -314,6 +342,7 @@ python3 tools/svg_to_pptx.py <项目路径> -s final
 - [ ] 八项确认已完成
 - [ ] 设计规范已保存
 - [ ] 图片已就绪（如需要）
+- [ ] `slide_state.json` 已生成/更新
 - [ ] SVG 文件已生成到 `svg_output/`
 - [ ] 演讲备注已生成 `notes/total.md`
 - [ ] 后处理已执行（`finalize_svg.py`）
@@ -425,7 +454,8 @@ PPT Master 是一个 AI 驱动的多格式 SVG 内容生成系统，通过多角
 
 ### 视觉构建阶段
 - [x] 已阅读对应的 Executor 角色定义
-- [x] 所有 SVG 页面已生成到 `svg_output/`
+- [x] 已生成项目级 `slide_state.json`（General 路径）或原始 `svg_output/`（Consultant 路径）
+- [x] 已从 `slide_state.json` 回写兼容的 `svg_output/`
 - [x] 已通过质量检查
 
 ### 逻辑构建阶段（必须）
@@ -540,6 +570,12 @@ python3 tools/web_to_md.py <URL> 或 node tools/web_to_md.cjs <URL>
 
 # 初始化项目
 python3 tools/project_manager.py init <名称> --format ppt169
+
+# 将现有 svg_output/ 收敛为 slide_state.json，并回写兼容 SVG
+python3 tools/slide_state_bridge.py sync <项目路径>
+
+# 如果项目已直接生成 slide_state.json，仅从 state 渲染 svg_output/
+python3 tools/slide_state_bridge.py render <项目路径>
 
 # 验证项目
 python3 tools/project_manager.py validate <路径>
@@ -695,7 +731,12 @@ project/
 - 图片使用方式需在八项确认中确认（不使用 / 用户提供 / AI 生成 / 占位符）
 - 若图片方案包含「B) 用户提供」，策略师在八项确认后、内容分析前必须运行 `python3 tools/analyze_images.py <项目路径>/images` 并填充图片资源清单
 - **图片生成流程**：如果图片方式**包含**「C) AI 生成」（如 C、B+C、C+D），**必须**先切换到 Image_Generator 角色，阅读角色定义，完成图片生成后再进入 Executor 阶段
-- **Executor 两阶段**：SVG 页面生成（视觉构建）完成后，**必须**进入逻辑构建阶段生成演讲备注 `notes/total.md`，**禁止**跳过此步骤直接进入后处理
+- **Executor 两阶段**：视觉构建完成后，`Executor_General` 必须先产出项目级 `slide_state.json` 并 `render` 出兼容 `svg_output/`；`Executor_Consultant` / `Executor_Consultant_Top` 当前仍先产出 `svg_output/`。无论哪条路径，随后都**必须**进入逻辑构建阶段生成演讲备注 `notes/total.md`，**禁止**跳过此步骤直接进入后处理
+- **编辑器本地 AI handoff 边界**：
+  - `design_patch.ai-request.json` 是机器可读 handoff 输入，优先放在项目根目录
+  - `design_patch.ai-handoff.md` 是给 Claude Code / Codex 本地 skill / command 的执行说明
+  - 浏览器编辑器只负责导出 / 导入文件，不提供浏览器直连或服务端 API 协议
+  - 若本地 agent 直接修改项目，则更新 `slide_state.json` 后执行 `render` / `validate`；若只返回 `design_patch.json`，则再拖回编辑器应用
 
 ### 后处理提示
 

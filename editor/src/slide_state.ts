@@ -221,13 +221,21 @@ export interface GroupElement extends BaseElement {
 // Design Patch — AI ↔ 人交互的修改记录
 // ============================================================
 
+export type AiCommandScope = 'selected-element' | 'current-slide'
+
 export interface AiCommand {
+  /** 指令目标范围：围绕当前选中元素或当前页面 */
+  scope: AiCommandScope
+  /** 发送指令的幻灯片索引 */
+  slideIndex: number
   /** 发送指令的幻灯片 ID */
   slideId: string
   /** 选中元素的 ID（null 表示页面级指令） */
   elementId: string | null
   /** 选中元素的当前快照（供 AI 读取上下文） */
   elementSnapshot: Element | null
+  /** 当前页面的完整快照（供 AI 直接产出 patch） */
+  slideSnapshot: Slide
   /** 用户输入的自然语言指令 */
   instruction: string
 }
@@ -266,12 +274,12 @@ export interface UpdatePatchOperation extends BasePatchOperation {
 
 export interface AddPatchOperation extends BasePatchOperation {
   op: 'add'
-  value: Element
+  value: Element | Slide
 }
 
 export interface DeletePatchOperation extends BasePatchOperation {
   op: 'delete'
-  oldValue: Element
+  oldValue: Element | Slide
 }
 
 export interface ReorderPatchOperation extends BasePatchOperation {

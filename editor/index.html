@@ -338,6 +338,55 @@
         color: #64748b;
       }
 
+      .ai-handoff-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      .ai-handoff-actions button {
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        padding: 10px 14px;
+        background: var(--panel-muted);
+        color: var(--text);
+        cursor: pointer;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+      }
+
+      .ai-handoff-actions button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        border-color: rgba(79, 70, 229, 0.28);
+      }
+
+      .ai-handoff-actions button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .ai-handoff-status {
+        margin-top: 12px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+
+      .ai-handoff-status[data-tone="error"],
+      .asset-library-status[data-tone="error"] {
+        color: #b91c1c;
+      }
+
+      .asset-library-status {
+        margin-top: 12px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+
       .filmstrip {
         grid-column: 1 / -1;
         display: flex;
@@ -486,13 +535,16 @@
           <div class="topbar__logo">PM</div>
           <div class="topbar__title">
             <strong>PPT Master Editor</strong>
-            <span>Phase 3 · 文件热更新 + Patch 记录 + SVG 导入</span>
+            <span>Phase 4 · State-first 编辑闭环 + 本地 AI handoff</span>
           </div>
         </div>
         <div class="toolbar-actions">
           <div class="toolbar-badge">Pure TypeScript + DOM API</div>
+          <div class="toolbar-badge">快捷键：⌘/Ctrl+Z 撤销 · ⇧⌘/Ctrl+Z 重做 · ⌘/Ctrl+S 保存</div>
           <div id="stateSourceBadge" class="toolbar-badge">当前数据：内置 Demo</div>
           <div class="toolbar-nav">
+            <button id="undoBtn" type="button">撤销</button>
+            <button id="redoBtn" type="button">重做</button>
             <button id="saveJsonBtn" type="button">保存 JSON</button>
             <button id="exportSvgBtn" type="button">导出 SVG</button>
             <button id="watchFileBtn" type="button">监听文件</button>
@@ -526,6 +578,46 @@
         </section>
 
         <section class="panel-card">
+          <h3>AI 协作</h3>
+          <div id="aiTargetSummary" class="selection-summary"></div>
+          <div class="selection-empty" style="margin-top: 12px;">
+            输入自然语言指令后，编辑器会导出本地 AI handoff bundle，供 Claude Code / Codex 在本地仓库里消费。若对方只返回 `design_patch.json`，也可在这里应用回当前 state。
+          </div>
+          <div class="property-field" style="margin-top: 12px;">
+            <label for="aiInstructionInput">AI 指令</label>
+            <textarea
+              id="aiInstructionInput"
+              placeholder="例如：把当前标题改得更短一点，保持两行左对齐；或为这一页补一个右侧指标卡片。"
+            ></textarea>
+          </div>
+          <div class="ai-handoff-actions">
+            <button id="exportAiTaskBtn" type="button">导出 AI Handoff</button>
+            <button id="applyAiPatchBtn" type="button">应用 AI Patch</button>
+          </div>
+          <div id="aiHandoffStatus" class="ai-handoff-status">
+            输入自然语言后导出本地 AI handoff；优先交给 Claude Code / Codex 在项目内直接修改，若只返回 `design_patch.json` 也可在这里回流应用。
+          </div>
+          <input id="aiPatchFileInput" type="file" accept="application/json,.json" hidden />
+        </section>
+
+        <section class="panel-card">
+          <h3>模板 / 图表</h3>
+          <div id="assetImportSummary" class="selection-summary"></div>
+          <div class="selection-empty" style="margin-top: 12px;">
+            选择仓库里的 <code>templates/layouts/&lt;模板名&gt;/*.svg</code> 或 <code>templates/charts/*.svg</code> 后，会先转成 <code>slide_state</code> 页面，再追加到当前页之后。模板 JSON 也可直接导入。
+          </div>
+          <div class="ai-handoff-actions">
+            <button id="importTemplateBtn" type="button">追加模板页</button>
+            <button id="importChartBtn" type="button">追加图表页</button>
+          </div>
+          <div id="assetLibraryStatus" class="asset-library-status">
+            支持把模板页或图表 SVG 直接追加到当前项目；导入时会先转为 slide_state，再进入同一套 patch / AI handoff / render 工作流。
+          </div>
+          <input id="templateImportInput" type="file" accept="application/json,.json,image/svg+xml,.svg" multiple hidden />
+          <input id="chartImportInput" type="file" accept="image/svg+xml,.svg" multiple hidden />
+        </section>
+
+        <section class="panel-card">
           <h3>当前页面</h3>
           <div id="slideMeta" class="meta-grid"></div>
         </section>
@@ -546,8 +638,8 @@
 
       <div id="dropZoneOverlay" class="drop-zone-overlay" hidden>
         <div class="drop-zone-overlay__card">
-          <strong>拖拽 slide_state.json 或 .svg 到这里</strong>
-          <span>支持 JSON 直接替换当前 state，也支持多文件 SVG 导入并自动组装为多页 SlideState。</span>
+          <strong>拖拽 slide_state / design_patch / .svg 到这里</strong>
+          <span>支持 JSON 替换当前 state、应用 AI patch，或导入多文件 SVG 并自动组装为多页 SlideState。</span>
         </div>
       </div>
     </div>
