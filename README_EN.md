@@ -135,20 +135,18 @@ If you want Claude Code or Codex to continue editing the current element or slid
 
 1. Enter a natural-language instruction in the `AI 协作` panel inside the editor
 2. Click `导出 AI Handoff`
-3. The editor will first reliably download:
-   - `design_patch.ai-request.json`
-4. At the same time, the panel renders a preview of `design_patch.ai-handoff.md` and exposes:
-   - `下载 Handoff 说明`
-   - `复制 Handoff 说明`
-5. This avoids browser restrictions on multiple automatic downloads from a single click.
-6. Primary path: place `design_patch.ai-request.json` in the project root, then hand `design_patch.ai-handoff.md` to a local skill / command as the execution note:
+3. If the editor is currently bound to a project `slide_state.json`, it will write directly to:
+   - `<project>/.cache/ai_handoff/design_patch.ai-request.json`
+   - `<project>/.cache/ai_handoff/design_patch.ai-handoff.md`
+4. If the editor is not bound to a project, it falls back to downloading `design_patch.ai-request.json` and shows a preview of `design_patch.ai-handoff.md` so you can still download or copy the note manually.
+5. Primary path: hand the files from `.cache/ai_handoff/` to a local skill / command:
    - Claude Code: [`.claude/commands/ppt-edit.md`](./.claude/commands/ppt-edit.md)
    - Codex / project-local agent: [`.agent/skills/ppt_master_ai_edit/SKILL.md`](./.agent/skills/ppt_master_ai_edit/SKILL.md)
-7. In this primary path, Claude Code / Codex edits `slide_state.json` directly inside the local repo and then runs `render / validate`; neither the browser editor nor the repo exposes a browser-side or service-side model API.
-8. Compatibility path: if your session only returns patch JSON, you can still take `design_patch.json` or any JSON following the same schema and:
+6. In this primary path, Claude Code / Codex edits `slide_state.json` directly inside the local repo and then runs `render / validate`; neither the browser editor nor the repo exposes a browser-side or service-side model API.
+7. Compatibility path: if your session only returns patch JSON, you can still take `design_patch.json` or any JSON following the same schema and:
    - drag it back into the browser editor, or
    - click `应用 AI Patch` in the `AI 协作` panel
-9. If you use the compatibility path, export/save the updated `slide_state.json`; in either case, run the formal workflow commands afterward:
+8. If you use the compatibility path, export/save the updated `slide_state.json`; in either case, run the formal workflow commands afterward:
 
 ```bash
 python3 tools/slide_state_bridge.py render <project_path>

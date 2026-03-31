@@ -11,7 +11,7 @@ description: "Consume a PPT Master editor local AI handoff bundle from design_pa
 
 - 用户在浏览器编辑器里选中元素或页面后，点击“导出 AI Handoff”
 - 项目根目录已有 `slide_state.json`
-- 项目根目录存在以下任一 handoff 文件：
+- 项目根目录或 `.cache/ai_handoff/` 目录存在以下任一 handoff 文件：
   - `design_patch.ai-request.json`
   - `design_patch.json`（仅兼容旧用法，且其中必须包含 `aiCommand`）
 
@@ -19,7 +19,7 @@ description: "Consume a PPT Master editor local AI handoff bundle from design_pa
 
 1. 先阅读仓库根目录 `AGENTS.md`
 2. 阅读项目根目录 `slide_state.json`
-3. 阅读项目根目录的机器可读 handoff JSON，提取：
+3. 阅读项目根目录或 `.cache/ai_handoff/` 中的机器可读 handoff JSON，提取：
    - `aiCommand.scope`
    - `aiCommand.slideId`
    - `aiCommand.elementId`

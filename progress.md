@@ -388,3 +388,31 @@
   - `editor/src/app.ts`
   - `README.md`
   - `README_EN.md`
+
+### 项目临时目录 handoff：优先写入 `.cache/ai_handoff/`
+- **Status:** complete
+- Actions taken:
+  - 新增 `editor/src/local_ai_handoff.ts`，统一 `.cache/ai_handoff/` 与本地写盘 endpoint 常量
+  - 在 `vite-plugin-state-watcher.ts` 中增加 dev-only 本地写盘接口 `POST /__ppt_master/write-ai-handoff`
+  - 浏览器编辑器在已绑定项目时，优先将 `design_patch.ai-request.json` 与 `design_patch.ai-handoff.md` 直接写入 `<项目>/.cache/ai_handoff/`
+  - 未绑定项目时，继续回退到浏览器下载 + 预览/复制说明
+  - 更新 README 与 Claude/Codex skill 文档，把 `.cache/ai_handoff/` 设为官方默认 handoff 位置
+  - 顺手修复一个绑定外部项目的真实问题：Vite dev server 现在允许通过 `/@fs/` 加载工作区外部的 `slide_state.json`
+- Files created/modified:
+  - `editor/src/local_ai_handoff.ts`
+  - `editor/src/__tests__/local_ai_handoff.test.ts`
+  - `editor/src/app.ts`
+  - `editor/src/design_patch.ts`
+  - `editor/src/vite-plugin-state-watcher.ts`
+  - `editor/vite.config.ts`
+  - `editor/src/__tests__/design_patch.test.ts`
+  - `README.md`
+  - `README_EN.md`
+  - `.claude/commands/ppt-edit.md`
+  - `.claude/skills/ppt-edit/SKILL.md`
+  - `.agent/skills/ppt_master_ai_edit/SKILL.md`
+- Validation:
+  - Editor regression: `cd editor && npm test` 通过，`9` 个 test files、`56` 个 tests 全部通过
+  - Editor build: `cd editor && npm run build` 通过
+  - Browser smoke: 用 `?state=/@fs/.../slide_state.json` 成功绑定工作区外临时项目，不再出现 403
+  - End-to-end handoff smoke: 在绑定项目的浏览器编辑器里点击 `导出 AI Handoff` 后，`<项目>/.cache/ai_handoff/design_patch.ai-request.json` 与 `<项目>/.cache/ai_handoff/design_patch.ai-handoff.md` 都已成功写入，且 note 内部引用的是 `.cache/ai_handoff/design_patch.ai-request.json`

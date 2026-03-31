@@ -167,7 +167,7 @@ export function createAiCommandPromptDownload(
 ## 说明
 - 这是给 Claude Code / Codex 本地 skill / command 使用的 handoff，不是浏览器直连或服务端 API 协议。
 - 浏览器编辑器只负责导出 / 导入文件；真正的项目修改、render、validate 都在本地仓库里完成。
-- 如果当前文件还没放入项目根目录，请先把 \`${requestFileName}\` 移动到目标项目目录。
+- 推荐将这组 handoff 文件保存在 \`${projectPath}/.cache/ai_handoff/\`；如果当前文件还在浏览器下载目录，请先移动到项目目录再执行。
 - 如果当前会话只打算返回 patch JSON 而不直接改项目，也可输出同 schema 的 \`design_patch.json\` 供编辑器回流应用。
 `,
   }

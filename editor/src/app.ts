@@ -34,6 +34,11 @@ import {
   createAppendSlidesPatch,
   ensureCompatibleCanvas,
 } from './slide_import.js'
+import {
+  buildProjectAiHandoffRelativePath,
+  LOCAL_AI_HANDOFF_DIR,
+  LOCAL_AI_HANDOFF_WRITE_ENDPOINT,
+} from './local_ai_handoff.js'
 import type { DownloadArtifact } from './state_io.js'
 import {
   createJsonDownload,
@@ -214,7 +219,7 @@ let watchedStatePath = getStatePathFromSearch(window.location.search)
 let watchedStateRawSnapshot: string | null = null
 let manualWatchTimer: number | null = null
 let latestAiHandoffNote: DownloadArtifact | null = null
-let aiHandoffStatusMessage = '输入自然语言后导出本地 AI handoff；编辑器会先稳定下载 JSON 请求文件，并在下方提供 Handoff 说明的单独下载 / 复制，避免浏览器吞掉第二个自动下载。'
+let aiHandoffStatusMessage = `输入自然语言后导出本地 AI handoff；已绑定项目时优先写入 <项目>/${LOCAL_AI_HANDOFF_DIR}/，未绑定项目时再回退到浏览器下载。`
 let aiHandoffStatusTone: 'default' | 'error' = 'default'
 let assetLibraryStatusMessage = '支持把模板页或图表 SVG 直接追加到当前项目；导入时会先转为 slide_state，再进入同一套 patch / AI handoff / render 工作流。'
 let assetLibraryStatusTone: 'default' | 'error' = 'default'
@@ -410,7 +415,9 @@ function renderAiHandoffPanel(): void {
   const scopeLabel = selected ? '当前选中元素' : '当前页面'
   const elementLabel = selected ? selected.id : '页面级'
   const projectPathHint = inferProjectPathHint(watchedStatePath)
-  const projectLabel = projectPathHint ?? '未绑定本地项目'
+  const projectLabel = projectPathHint
+    ? `${projectPathHint} (${LOCAL_AI_HANDOFF_DIR})`
+    : '未绑定本地项目'
 
   aiTargetSummary.innerHTML = `
     <div class="selection-summary__meta">
@@ -662,7 +669,7 @@ function bindAiHandoffInteractions(): void {
   aiInstructionInput.addEventListener('input', () => {
     latestAiHandoffNote = null
     aiHandoffStatusTone = 'default'
-    aiHandoffStatusMessage = '输入自然语言后导出本地 AI handoff；编辑器会先稳定下载 JSON 请求文件，并在下方提供 Handoff 说明的单独下载 / 复制，避免浏览器吞掉第二个自动下载。'
+    aiHandoffStatusMessage = `输入自然语言后导出本地 AI handoff；已绑定项目时优先写入 <项目>/${LOCAL_AI_HANDOFF_DIR}/，未绑定项目时再回退到浏览器下载。`
     renderAiHandoffPanel()
   })
 
@@ -891,25 +898,45 @@ function exportAiHandoff(): void {
   const aiCommand = createEditorAiCommand(instruction)
   const projectPathHint = inferProjectPathHint(watchedStatePath)
   const stateFilePathHint = inferStateFilePathHint(watchedStatePath)
+  const requestRelativePath = buildProjectAiHandoffRelativePath('design_patch.ai-request.json')
   const requestArtifact = createAiCommandDownload(aiCommand, patches)
   const noteArtifact = createAiCommandPromptDownload(aiCommand, patches, {
     projectPathHint,
     stateFilePathHint,
+    requestFileName: projectPathHint ? requestRelativePath : undefined,
   })
 
   latestAiHandoffNote = noteArtifact
+  const afterWrite = (summary: string) => {
+    interactionHint = aiCommand.scope === 'selected-element'
+      ? `已导出本地 AI handoff，可交给 Claude Code / Codex 在项目内修改元素 ${aiCommand.elementId}`
+      : '已导出本地 AI handoff，可交给 Claude Code / Codex 在项目内修改当前页面'
+    aiHandoffStatusTone = 'default'
+    aiHandoffStatusMessage = summary
+    renderInspector()
+    renderAiHandoffPanel()
+  }
+
+  if (projectPathHint) {
+    void writeAiHandoffBundleToProject(projectPathHint, requestArtifact, noteArtifact)
+      .then(result => {
+        afterWrite(
+          `已写入 ${result.requestPath} 和 ${result.notePath}。Claude Code / Codex 现在可直接在项目里消费这组 handoff 文件。`,
+        )
+      })
+      .catch(error => {
+        downloadArtifacts([requestArtifact])
+        afterWrite(
+          `写入项目临时目录失败，已回退下载 ${requestArtifact.fileName}：${(error as Error).message}。下方仍保留 Handoff 说明预览，可继续下载或复制。`,
+        )
+      })
+    return
+  }
+
   downloadArtifacts([requestArtifact])
-
-  interactionHint = aiCommand.scope === 'selected-element'
-    ? `已导出本地 AI handoff，可交给 Claude Code / Codex 在项目内修改元素 ${aiCommand.elementId}`
-    : '已导出本地 AI handoff，可交给 Claude Code / Codex 在项目内修改当前页面'
-  aiHandoffStatusTone = 'default'
-  aiHandoffStatusMessage = aiCommand.scope === 'selected-element'
-    ? `已下载 ${requestArtifact.fileName}，并在下方生成 Handoff 说明。Claude Code / Codex 可直接修改项目；若浏览器拦截多文件自动下载，请点“下载 Handoff 说明”或“复制 Handoff 说明”。`
-    : `已下载 ${requestArtifact.fileName}，并在下方生成页面级 Handoff 说明。Claude Code / Codex 可直接修改项目；若浏览器拦截多文件自动下载，请点“下载 Handoff 说明”或“复制 Handoff 说明”。`
-
-  renderInspector()
-  renderAiHandoffPanel()
+  afterWrite(
+    `当前未绑定项目，已下载 ${requestArtifact.fileName}。下方保留 Handoff 说明预览，可继续下载或复制说明文件。`,
+  )
 }
 
 function downloadAiHandoffNote(): void {
@@ -918,6 +945,44 @@ function downloadAiHandoffNote(): void {
   aiHandoffStatusTone = 'default'
   aiHandoffStatusMessage = `已触发 ${latestAiHandoffNote.fileName} 下载；如果浏览器没有落盘，可直接复制下方预览内容。`
   renderAiHandoffPanel()
+}
+
+async function writeAiHandoffBundleToProject(
+  projectPath: string,
+  requestArtifact: DownloadArtifact,
+  noteArtifact: DownloadArtifact,
+): Promise<{ requestPath: string; notePath: string }> {
+  const response = await fetch(LOCAL_AI_HANDOFF_WRITE_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      projectPath,
+      requestArtifact,
+      noteArtifact,
+    }),
+  })
+
+  const payload = await response.json().catch(() => null) as
+    | { requestPath?: unknown; notePath?: unknown; error?: unknown }
+    | null
+
+  if (!response.ok) {
+    const errorMessage = typeof payload?.error === 'string'
+      ? payload.error
+      : `HTTP ${response.status}`
+    throw new Error(errorMessage)
+  }
+
+  if (typeof payload?.requestPath !== 'string' || typeof payload?.notePath !== 'string') {
+    throw new Error('本地 handoff 写盘响应无效')
+  }
+
+  return {
+    requestPath: payload.requestPath,
+    notePath: payload.notePath,
+  }
 }
 
 async function copyAiHandoffNote(): Promise<void> {
@@ -1081,6 +1146,8 @@ function replaceState(nextState: SlideState, sourceLabel: string): void {
   currentSlideIndex = 0
   assetLibraryStatusTone = 'default'
   assetLibraryStatusMessage = '支持把模板页或图表 SVG 直接追加到当前项目；导入时会先转为 slide_state，再进入同一套 patch / AI handoff / render 工作流。'
+  aiHandoffStatusMessage = `输入自然语言后导出本地 AI handoff；已绑定项目时优先写入 <项目>/${LOCAL_AI_HANDOFF_DIR}/，未绑定项目时再回退到浏览器下载。`
+  aiHandoffStatusTone = 'default'
   resetTransientInteractionState({ clearSelection: true, clearHint: true })
   render()
 }

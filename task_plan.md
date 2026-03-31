@@ -90,3 +90,4 @@ Phase 4
 - 2026-03-31：编辑器已新增本地 AI handoff 入口。用户可围绕当前选中元素或当前页面导出 `design_patch.ai-request.json` + `design_patch.ai-handoff.md`，并把 AI 返回的 `design_patch` 直接拖回编辑器或通过按钮应用；该链路继续以 `slide_state.json` 为唯一真相源。
 - 2026-03-31：Phase 4 已收口。编辑器现已补上 inverse-patch 驱动的撤销/重做、键盘快捷键，以及“模板页 / 图表页 → slide_state 页面 → 当前项目追加”导入路径。导入后的页面继续走同一套 `design_patch`、本地 AI handoff、`slide_state_bridge.py render`、`finalize_svg.py`、`svg_to_pptx.py` 链路。
 - 2026-03-31：本地 AI handoff 的官方语义已统一为“给 Claude Code / Codex 本地 skill / command 消费的 handoff bundle”。`design_patch.ai-request.json` 是机器可读输入，`design_patch.ai-handoff.md` 是执行说明；浏览器内直接应用 `design_patch.json` 仅保留为兼容回流路径，不再与官方直接改项目路径混淆。
+- 2026-03-31：本地 AI handoff 现在会在“已绑定项目”场景下优先直接写入 `<项目>/.cache/ai_handoff/`，而不是继续依赖 `Downloads`。Vite dev server 也已放开 `/@fs/` 外部项目读取，确保浏览器可以绑定工作区外的 `slide_state.json` 后再写回项目临时目录。

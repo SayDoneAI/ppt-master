@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildProjectAiHandoffRelativePath } from '../local_ai_handoff.js'
 import {
   applyDesignPatch,
   createAiCommand,
@@ -105,10 +106,12 @@ describe('design_patch', () => {
     const promptDownload = createAiCommandPromptDownload(aiCommand, [], {
       projectPathHint: '/tmp/demo_project',
       stateFilePathHint: '/tmp/demo_project/slide_state.json',
+      requestFileName: buildProjectAiHandoffRelativePath('design_patch.ai-request.json'),
     })
     expect(promptDownload.fileName).toBe('design_patch.ai-handoff.md')
     expect(promptDownload.content).toContain('Claude Code / Codex')
     expect(promptDownload.content).toContain('design_patch.ai-request.json')
+    expect(promptDownload.content).toContain('/tmp/demo_project/.cache/ai_handoff/design_patch.ai-request.json')
     expect(promptDownload.content).toContain('本地 skill / command')
     expect(promptDownload.content).toContain('不是浏览器直连或服务端 API 协议')
     expect(promptDownload.content).toContain('python3 tools/slide_state_bridge.py render /tmp/demo_project')

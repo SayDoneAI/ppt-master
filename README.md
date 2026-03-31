@@ -135,20 +135,18 @@ http://127.0.0.1:5173/?state=/@fs/<项目绝对路径>/slide_state.json
 
 1. 在右侧 `AI 协作` 面板输入自然语言指令
 2. 点击 `导出 AI Handoff`
-3. 编辑器会先稳定下载：
-   - `design_patch.ai-request.json`
-4. 同时，面板下方会生成 `design_patch.ai-handoff.md` 的预览，并提供：
-   - `下载 Handoff 说明`
-   - `复制 Handoff 说明`
-5. 这样做是为了避开浏览器对“一次点击触发多个自动下载”的限制。
-6. 官方路径：将 `design_patch.ai-request.json` 放到项目根目录，并把 `design_patch.ai-handoff.md` 作为执行说明交给本地 skill / command：
+3. 如果当前编辑器已绑定项目里的 `slide_state.json`，会优先直接写入：
+   - `<项目>/.cache/ai_handoff/design_patch.ai-request.json`
+   - `<项目>/.cache/ai_handoff/design_patch.ai-handoff.md`
+4. 如果当前未绑定项目，才会回退到浏览器下载 `design_patch.ai-request.json`，并在面板下方生成 `design_patch.ai-handoff.md` 预览，供你继续下载或复制。
+5. 官方路径：将 `.cache/ai_handoff/` 里的 handoff 文件直接交给本地 skill / command：
    - Claude Code: [`.claude/commands/ppt-edit.md`](./.claude/commands/ppt-edit.md)
    - Codex / 项目内 agent: [`.agent/skills/ppt_master_ai_edit/SKILL.md`](./.agent/skills/ppt_master_ai_edit/SKILL.md)
-7. 这条路径会由 Claude Code / Codex 在本地仓库里直接修改 `slide_state.json`，然后执行 `render / validate`；浏览器编辑器和仓库本身都不提供浏览器直连或服务端 API。
-8. 兼容路径：如果你当前使用的是只返回 patch JSON 的会话，也可以把 AI 返回的 `design_patch.json` 或同 schema JSON：
+6. 这条路径会由 Claude Code / Codex 在本地仓库里直接修改 `slide_state.json`，然后执行 `render / validate`；浏览器编辑器和仓库本身都不提供浏览器直连或服务端 API。
+7. 兼容路径：如果你当前使用的是只返回 patch JSON 的会话，也可以把 AI 返回的 `design_patch.json` 或同 schema JSON：
    - 直接拖回浏览器编辑器，或
    - 点击右侧 `AI 协作` 面板中的 `应用 AI Patch`
-9. 若走兼容路径，应用完成后再导出/保存最新 `slide_state.json`；无论哪条路径，回到正式工作流时都运行：
+8. 若走兼容路径，应用完成后再导出/保存最新 `slide_state.json`；无论哪条路径，回到正式工作流时都运行：
 
 ```bash
 python3 tools/slide_state_bridge.py render <项目路径>

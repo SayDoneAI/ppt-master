@@ -16,6 +16,7 @@ description: "Consume a PPT Master editor local AI handoff bundle, update slide_
 
 - `/ppt-edit /绝对路径/到/项目目录`
 - `/ppt-edit /绝对路径/到/项目目录/design_patch.ai-request.json`
+- `/ppt-edit /绝对路径/到/项目目录/.cache/ai_handoff/design_patch.ai-request.json`
 - `/ppt-edit /绝对路径/到/项目目录/design_patch.json`（仅当该文件仍包含 `aiCommand` 时）
 
 执行内容：
@@ -27,6 +28,7 @@ description: "Consume a PPT Master editor local AI handoff bundle, update slide_
 5. 验证项目结构
 
 注意：这是给 Claude Code 本地 command / skill 使用的工作流。浏览器编辑器只负责导出文件；仓库本身不提供浏览器直连或服务端模型 API。
+若编辑器已绑定项目，默认生成位置是 `<项目>/.cache/ai_handoff/`。
 
 ---
 

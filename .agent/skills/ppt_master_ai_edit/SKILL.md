@@ -1,6 +1,6 @@
 ---
 name: PPT Master AI Edit
-description: 当用户要消费 PPT Master Editor 导出的本地 AI handoff bundle 时使用。读取项目根目录的 `slide_state.json` 和 `design_patch.ai-request.json` / `design_patch.json`（需带 `aiCommand`），修改 state 后重新 render 兼容 SVG。该流程供本地 Codex skill 使用，不是浏览器或服务端 API。
+description: 当用户要消费 PPT Master Editor 导出的本地 AI handoff bundle 时使用。读取项目根目录的 `slide_state.json`，以及项目根目录或 `.cache/ai_handoff/` 下的 `design_patch.ai-request.json` / `design_patch.json`（需带 `aiCommand`），修改 state 后重新 render 兼容 SVG。该流程供本地 Codex skill 使用，不是浏览器或服务端 API。
 ---
 
 # PPT Master AI Edit
@@ -9,7 +9,7 @@ description: 当用户要消费 PPT Master Editor 导出的本地 AI handoff bun
 
 - 用户说“应用编辑器导出的 AI handoff”
 - 项目目录里已有 `slide_state.json`
-- 项目目录里已有 `design_patch.ai-request.json` 或带 `aiCommand` 的 `design_patch.json`
+- 项目目录或 `.cache/ai_handoff/` 里已有 `design_patch.ai-request.json` 或带 `aiCommand` 的 `design_patch.json`
 
 ## 执行步骤
 

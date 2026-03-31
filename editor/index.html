@@ -592,7 +592,7 @@
           <h3>AI 协作</h3>
           <div id="aiTargetSummary" class="selection-summary"></div>
           <div class="selection-empty" style="margin-top: 12px;">
-            输入自然语言指令后，编辑器会导出本地 AI handoff bundle，供 Claude Code / Codex 在本地仓库里消费。若对方只返回 `design_patch.json`，也可在这里应用回当前 state。
+            输入自然语言指令后，编辑器会优先把本地 AI handoff bundle 写入当前项目的 <code>.cache/ai_handoff/</code>。若当前未绑定项目，则回退为浏览器下载；若对方只返回 <code>design_patch.json</code>，也可在这里应用回当前 state。
           </div>
           <div class="property-field" style="margin-top: 12px;">
             <label for="aiInstructionInput">AI 指令</label>
@@ -610,7 +610,7 @@
             <button id="copyAiHandoffNoteBtn" type="button" disabled>复制 Handoff 说明</button>
           </div>
           <div id="aiHandoffStatus" class="ai-handoff-status">
-            输入自然语言后导出本地 AI handoff；编辑器会先稳定下载 JSON 请求文件，并在下方提供 Handoff 说明的单独下载 / 复制，避免浏览器吞掉第二个自动下载。
+            输入自然语言后导出本地 AI handoff；已绑定项目时优先写入 <code>&lt;项目&gt;/.cache/ai_handoff/</code>，未绑定项目时再回退到浏览器下载。
           </div>
           <div id="aiHandoffPreviewWrap" class="property-field ai-handoff-preview" hidden>
             <label for="aiHandoffPreview">Handoff 说明预览</label>
