@@ -182,7 +182,11 @@ const aiTargetSummary = getElement<HTMLDivElement>('aiTargetSummary')
 const aiInstructionInput = getElement<HTMLTextAreaElement>('aiInstructionInput')
 const exportAiTaskButton = getElement<HTMLButtonElement>('exportAiTaskBtn')
 const applyAiPatchButton = getElement<HTMLButtonElement>('applyAiPatchBtn')
+const downloadAiHandoffNoteButton = getElement<HTMLButtonElement>('downloadAiHandoffNoteBtn')
+const copyAiHandoffNoteButton = getElement<HTMLButtonElement>('copyAiHandoffNoteBtn')
 const aiHandoffStatus = getElement<HTMLDivElement>('aiHandoffStatus')
+const aiHandoffPreviewWrap = getElement<HTMLDivElement>('aiHandoffPreviewWrap')
+const aiHandoffPreview = getElement<HTMLTextAreaElement>('aiHandoffPreview')
 const aiPatchFileInput = getElement<HTMLInputElement>('aiPatchFileInput')
 const assetImportSummary = getElement<HTMLDivElement>('assetImportSummary')
 const importTemplateButton = getElement<HTMLButtonElement>('importTemplateBtn')
@@ -209,7 +213,8 @@ let historyFuture: HistoryEntry[] = []
 let watchedStatePath = getStatePathFromSearch(window.location.search)
 let watchedStateRawSnapshot: string | null = null
 let manualWatchTimer: number | null = null
-let aiHandoffStatusMessage = '输入自然语言后导出本地 AI handoff；优先交给 Claude Code / Codex 在项目内直接修改，若只返回 design_patch.json 也可应用回当前页面。'
+let latestAiHandoffNote: DownloadArtifact | null = null
+let aiHandoffStatusMessage = '输入自然语言后导出本地 AI handoff；编辑器会先稳定下载 JSON 请求文件，并在下方提供 Handoff 说明的单独下载 / 复制，避免浏览器吞掉第二个自动下载。'
 let aiHandoffStatusTone: 'default' | 'error' = 'default'
 let assetLibraryStatusMessage = '支持把模板页或图表 SVG 直接追加到当前项目；导入时会先转为 slide_state，再进入同一套 patch / AI handoff / render 工作流。'
 let assetLibraryStatusTone: 'default' | 'error' = 'default'
@@ -417,6 +422,10 @@ function renderAiHandoffPanel(): void {
   `
 
   exportAiTaskButton.disabled = aiInstructionInput.value.trim().length === 0
+  downloadAiHandoffNoteButton.disabled = latestAiHandoffNote === null
+  copyAiHandoffNoteButton.disabled = latestAiHandoffNote === null
+  aiHandoffPreviewWrap.hidden = latestAiHandoffNote === null
+  aiHandoffPreview.value = latestAiHandoffNote?.content ?? ''
   aiHandoffStatus.textContent = aiHandoffStatusMessage
   aiHandoffStatus.dataset.tone = aiHandoffStatusTone
 }
@@ -651,8 +660,9 @@ function bindAssetImportInteractions(): void {
 
 function bindAiHandoffInteractions(): void {
   aiInstructionInput.addEventListener('input', () => {
+    latestAiHandoffNote = null
     aiHandoffStatusTone = 'default'
-    aiHandoffStatusMessage = '输入自然语言后导出本地 AI handoff；优先交给 Claude Code / Codex 在项目内直接修改，若只返回 design_patch.json 也可应用回当前页面。'
+    aiHandoffStatusMessage = '输入自然语言后导出本地 AI handoff；编辑器会先稳定下载 JSON 请求文件，并在下方提供 Handoff 说明的单独下载 / 复制，避免浏览器吞掉第二个自动下载。'
     renderAiHandoffPanel()
   })
 
@@ -665,6 +675,14 @@ function bindAiHandoffInteractions(): void {
 
   exportAiTaskButton.addEventListener('click', () => {
     exportAiHandoff()
+  })
+
+  downloadAiHandoffNoteButton.addEventListener('click', () => {
+    downloadAiHandoffNote()
+  })
+
+  copyAiHandoffNoteButton.addEventListener('click', () => {
+    void copyAiHandoffNote()
   })
 
   applyAiPatchButton.addEventListener('click', () => {
@@ -873,24 +891,50 @@ function exportAiHandoff(): void {
   const aiCommand = createEditorAiCommand(instruction)
   const projectPathHint = inferProjectPathHint(watchedStatePath)
   const stateFilePathHint = inferStateFilePathHint(watchedStatePath)
+  const requestArtifact = createAiCommandDownload(aiCommand, patches)
+  const noteArtifact = createAiCommandPromptDownload(aiCommand, patches, {
+    projectPathHint,
+    stateFilePathHint,
+  })
 
-  downloadArtifacts([
-    createAiCommandDownload(aiCommand, patches),
-    createAiCommandPromptDownload(aiCommand, patches, {
-      projectPathHint,
-      stateFilePathHint,
-    }),
-  ])
+  latestAiHandoffNote = noteArtifact
+  downloadArtifacts([requestArtifact])
 
   interactionHint = aiCommand.scope === 'selected-element'
     ? `已导出本地 AI handoff，可交给 Claude Code / Codex 在项目内修改元素 ${aiCommand.elementId}`
     : '已导出本地 AI handoff，可交给 Claude Code / Codex 在项目内修改当前页面'
   aiHandoffStatusTone = 'default'
   aiHandoffStatusMessage = aiCommand.scope === 'selected-element'
-    ? `已导出本地 AI handoff，目标元素 ${aiCommand.elementId}。Claude Code / Codex 可直接修改项目；若只返回 design_patch.json，也可拖入或点击“应用 AI Patch”。`
-    : '已导出页面级本地 AI handoff。Claude Code / Codex 可直接修改项目；若只返回 design_patch.json，也可拖入或点击“应用 AI Patch”。'
+    ? `已下载 ${requestArtifact.fileName}，并在下方生成 Handoff 说明。Claude Code / Codex 可直接修改项目；若浏览器拦截多文件自动下载，请点“下载 Handoff 说明”或“复制 Handoff 说明”。`
+    : `已下载 ${requestArtifact.fileName}，并在下方生成页面级 Handoff 说明。Claude Code / Codex 可直接修改项目；若浏览器拦截多文件自动下载，请点“下载 Handoff 说明”或“复制 Handoff 说明”。`
 
   renderInspector()
+  renderAiHandoffPanel()
+}
+
+function downloadAiHandoffNote(): void {
+  if (!latestAiHandoffNote) return
+  downloadArtifacts([latestAiHandoffNote])
+  aiHandoffStatusTone = 'default'
+  aiHandoffStatusMessage = `已触发 ${latestAiHandoffNote.fileName} 下载；如果浏览器没有落盘，可直接复制下方预览内容。`
+  renderAiHandoffPanel()
+}
+
+async function copyAiHandoffNote(): Promise<void> {
+  if (!latestAiHandoffNote) return
+
+  try {
+    await navigator.clipboard.writeText(latestAiHandoffNote.content)
+    aiHandoffStatusTone = 'default'
+    aiHandoffStatusMessage = `已复制 ${latestAiHandoffNote.fileName} 内容。现在可直接粘贴给 Claude Code / Codex，或继续单独下载说明文件。`
+  } catch (error) {
+    aiHandoffPreviewWrap.hidden = false
+    aiHandoffPreview.focus()
+    aiHandoffPreview.select()
+    aiHandoffStatusTone = 'error'
+    aiHandoffStatusMessage = `复制失败：${(error as Error).message}。已选中下方预览内容，可直接按 Cmd+C / Ctrl+C。`
+  }
+
   renderAiHandoffPanel()
 }
 
@@ -1033,6 +1077,7 @@ function replaceState(nextState: SlideState, sourceLabel: string): void {
   historyPast = []
   historyFuture = []
   patches = []
+  latestAiHandoffNote = null
   currentSlideIndex = 0
   assetLibraryStatusTone = 'default'
   assetLibraryStatusMessage = '支持把模板页或图表 SVG 直接追加到当前项目；导入时会先转为 slide_state，再进入同一套 patch / AI handoff / render 工作流。'
@@ -1073,6 +1118,7 @@ function undoLastChange(): void {
   interactionHint = `已撤销：${entry.label}`
   aiHandoffStatusTone = 'default'
   aiHandoffStatusMessage = `已撤销一步：${entry.label}`
+  latestAiHandoffNote = null
   resetTransientInteractionState({ clearSelection: false, clearHint: false })
   render()
 }
@@ -1097,6 +1143,7 @@ function redoLastChange(): void {
   interactionHint = `已重做：${entry.label}`
   aiHandoffStatusTone = 'default'
   aiHandoffStatusMessage = `已重做一步：${entry.label}`
+  latestAiHandoffNote = null
   resetTransientInteractionState({ clearSelection: false, clearHint: false })
   render()
 }

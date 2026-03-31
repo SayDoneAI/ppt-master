@@ -138,7 +138,7 @@ export function createAiCommandPromptDownload(
 
   return {
     fileName: 'design_patch.ai-handoff.md',
-    mimeType: 'text/markdown;charset=utf-8',
+    mimeType: 'text/plain;charset=utf-8',
     content: `# PPT Master Local AI Handoff
 
 ## 请求摘要

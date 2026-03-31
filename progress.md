@@ -375,3 +375,16 @@
   - Native state-first path: 新建仅含 `slide_state.json` 的临时项目时，`project_manager.py validate` 正确提示“请先 render”；执行 `python3 tools/slide_state_bridge.py render <临时项目>` 后再次验证通过，仍只剩缺少设计规范文件的 warning
   - Delivery smoke: 对 `native_state_smoke_ppt169_20260331` 继续执行 `python3 tools/finalize_svg.py <临时项目>` 与 `python3 tools/svg_to_pptx.py <临时项目> -s final --no-notes` 均成功，导出 `native_state_smoke_20260331_112617.pptx`
   - Delivery smoke warning: 由于该临时项目只复制了 `svg_output/` 与 `slide_state.json`，未复制 `images/cover_background.png`，`finalize_svg.py` 对该图片给出 `Image not found` warning；这属于 smoke 数据不完整，不是本轮 handoff / state-first 语义改动引入的回归
+
+### 浏览器实测补丁：避免第二个自动下载被吞
+- **Status:** complete
+- Actions taken:
+  - 在本机浏览器打开 `http://127.0.0.1:4173/`，验证编辑器首屏、翻页与 AI handoff 导出
+  - 实测发现 `导出 AI Handoff` 一次点击连续触发两个自动下载时，浏览器只稳定落下 `design_patch.ai-request.json`，第二个 `design_patch.ai-handoff.md` 可能被自动下载策略拦掉
+  - 调整 AI 协作面板：默认先下载 JSON 请求文件，再在面板中提供 `下载 Handoff 说明` / `复制 Handoff 说明` 和 markdown 预览
+  - 同步更新 README 中英文说明，明确这是浏览器下载策略规避，不是本地 skill handoff 语义变化
+- Files created/modified:
+  - `editor/index.html`
+  - `editor/src/app.ts`
+  - `README.md`
+  - `README_EN.md`
