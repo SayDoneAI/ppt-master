@@ -86,6 +86,34 @@ AI（Strategist 角色）：好的，在开始之前我需要完成八项确认.
 
 > 💡 **AI 生成图片建议**：如需 AI 生成配图，建议在 [Gemini](https://gemini.google.com/) 中生成后选择 **Download full size** 下载，分辨率比 Antigravity 直接生成的更高。Gemini 生成的图片右下角会有星星水印，可使用 [gemini-watermark-remover](https://github.com/journey-ad/gemini-watermark-remover) 或本项目的 `tools/gemini_watermark_remover.py` 去除。
 
+### 5. 启动浏览器编辑器（实验性，可选）
+
+如果你想在 AI 生成之后直接拖拽、改文案、导入/导出 `slide_state.json` 或 SVG，可以启动仓库内置的浏览器编辑器：
+
+```bash
+cd editor
+bun install
+bun run dev
+```
+
+如本机未安装 Bun，也可使用：
+
+```bash
+cd editor
+npm install
+npm run dev
+```
+
+默认访问地址：`http://127.0.0.1:5173/`
+
+当前编辑器能力包括：
+- 基于 `slide_state.json` 的多页 SVG 渲染
+- 文本双击编辑，使用 Pretext 实时断行与溢出检测
+- 元素选中、拖拽移动、手柄缩放、属性面板编辑
+- 导入/导出 SVG、JSON，并记录 `design_patch.json` 风格 patch
+
+> 💡 **当前阶段**：编辑器 MVP 已可用，但默认 AI Executor 仍以直接产出 SVG 为主，尚未完全切换到 `slide_state.json` 工作流。
+
 ---
 
 ## 📚 文档导航
@@ -174,6 +202,13 @@ python3 tools/finalize_svg.py <项目路径>
 
 # 导出 PPTX
 python3 tools/svg_to_pptx.py <项目路径> -s final
+
+# 预览模板与示例总览
+python3 -m http.server -d . 8000
+# 打开 http://localhost:8000/gallery.html
+
+# 启动浏览器编辑器（实验性）
+cd editor && bun run dev
 ```
 
 > 📖 完整工具说明请参阅 [工具使用指南](./tools/README.md)
@@ -184,6 +219,8 @@ python3 tools/svg_to_pptx.py <项目路径> -s final
 
 ```
 ppt-master/
+├── .agent/         # 项目内 skills / workflows（如 generate-ppt、preview）
+├── editor/         # 浏览器编辑器（Pretext + slide_state + Vite）
 ├── roles/          # AI 角色定义（6 个专业角色）
 ├── docs/           # 文档中心（教程、设计指南、格式规范等）
 ├── templates/      # 模板库（图表模板 + 640+ 图标）

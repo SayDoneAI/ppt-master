@@ -550,6 +550,13 @@ python3 tools/svg_quality_checker.py <路径>
 # ⭐ 后处理（直接运行，无需参数）
 python3 tools/finalize_svg.py <项目路径>
 
+# 预览模板与示例总览（首选）
+python3 -m http.server -d . 8000
+# 打开 http://localhost:8000/gallery.html
+
+# 重新生成并启动 Gallery 预览
+python3 tools/template_gallery.py --port 8000
+
 # 预览原始版本
 python3 -m http.server -d <路径>/svg_output 8000
 

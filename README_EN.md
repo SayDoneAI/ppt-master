@@ -86,6 +86,34 @@ AI (Strategist role): Sure, before we begin I need to complete eight confirmatio
 
 > 💡 **AI Image Generation Tip**: For AI-generated images, we recommend generating them in [Gemini](https://gemini.google.com/) and selecting **Download full size** for higher resolution than Antigravity's direct generation. Gemini images have a star watermark in the bottom right corner, which can be removed using [gemini-watermark-remover](https://github.com/journey-ad/gemini-watermark-remover) or this project's `tools/gemini_watermark_remover.py`.
 
+### 5. Launch the Browser Editor (Experimental, Optional)
+
+If you want to tweak layouts after AI generation, drag elements directly, edit text, or import/export `slide_state.json` and SVG files, start the built-in browser editor:
+
+```bash
+cd editor
+bun install
+bun run dev
+```
+
+If Bun is not installed on your machine, use:
+
+```bash
+cd editor
+npm install
+npm run dev
+```
+
+Default URL: `http://127.0.0.1:5173/`
+
+Current editor capabilities:
+- Multi-slide SVG rendering driven by `slide_state.json`
+- Double-click text editing with Pretext line breaking and overflow detection
+- Element selection, drag move, resize handles, and property-panel editing
+- SVG / JSON import-export plus `design_patch.json`-style patch recording
+
+> 💡 **Current status**: the editor MVP is usable today, but the default AI Executor still mainly writes SVG directly instead of fully switching to the `slide_state.json` workflow.
+
 ---
 
 ## 📚 Documentation Navigation
@@ -174,6 +202,13 @@ python3 tools/finalize_svg.py <project_path>
 
 # Export PPTX
 python3 tools/svg_to_pptx.py <project_path> -s final
+
+# Preview templates and examples overview
+python3 -m http.server -d . 8000
+# Open http://localhost:8000/gallery.html
+
+# Launch the browser editor (experimental)
+cd editor && bun run dev
 ```
 
 > 📖 For complete tool documentation, see [Tools Usage Guide](./tools/README.md)
@@ -184,6 +219,8 @@ python3 tools/svg_to_pptx.py <project_path> -s final
 
 ```
 ppt-master/
+├── .agent/         # Project-local skills / workflows (for example generate-ppt, preview)
+├── editor/         # Browser editor (Pretext + slide_state + Vite)
 ├── roles/          # AI role definitions (6 professional roles)
 ├── docs/           # Documentation center (tutorials, design guides, format specs)
 ├── templates/      # Template library (chart templates + 640+ icons)

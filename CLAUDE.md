@@ -37,12 +37,21 @@ python3 tools/total_md_split.py <项目路径>       # 1. 拆分讲稿
 python3 tools/finalize_svg.py <项目路径>          # 2. SVG后处理（嵌入图标/图片/文本扁平化等）
 python3 tools/svg_to_pptx.py <项目路径> -s final  # 3. 导出PPTX（默认嵌入演讲备注）
 
-# 本地预览
+# 本地总览预览（首选）
+python3 -m http.server -d . 8000
+# 打开 http://localhost:8000/gallery.html
+
+# 重新生成并启动 Gallery 预览
+python3 tools/template_gallery.py --port 8000
+
+# 单项目本地预览
 python3 -m http.server -d <项目路径>/svg_final 8000
 ```
 
 ## 架构与关键目录
 
+- `.agent/skills/` — 项目内 skills（当前包含 OCR 图像转 Markdown、PPT Master 预览入口等）
+- `.agent/workflows/` — 项目内 workflows（如 `/generate-ppt`、`/create-template`）
 - `roles/` — 7个 AI 角色定义文件（Strategist、Image_Generator、Executor_General/Consultant/Consultant_Top、Optimizer_CRAP、Template_Designer）
 - `tools/` — 28个 Python 工具脚本，每个独立可调用。核心入口：`finalize_svg.py`（后处理统一入口）、`svg_to_pptx.py`（PPTX导出）、`project_manager.py`（项目管理）
 - `templates/layouts/` — 页面布局模板（General、Consultant、Consultant_Top 等多种风格）
@@ -51,6 +60,12 @@ python3 -m http.server -d <项目路径>/svg_final 8000
 - `docs/` — 设计指南、画布格式规范、图片布局规范等技术文档
 - `examples/` — 15个完整示例项目（229页 SVG）
 - `projects/` — 用户项目工作区（gitignored）
+
+**预览入口约定**：
+
+- 仓库级模板/案例总览：优先打开 `gallery.html`
+- 示例逐页浏览：使用 `viewer.html`
+- 单个项目最终交付预览：进入 `<项目路径>/svg_final/`
 
 **项目目录结构**（每个生成的项目）：
 ```

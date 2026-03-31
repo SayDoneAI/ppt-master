@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PPT Master Editor MVP</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #eef1f6;
+        --panel: #ffffff;
+        --panel-muted: #f7f8fb;
+        --border: rgba(15, 23, 42, 0.08);
+        --border-strong: rgba(15, 23, 42, 0.16);
+        --text: #0f172a;
+        --text-muted: #475569;
+        --brand: #4f46e5;
+        --brand-soft: rgba(79, 70, 229, 0.12);
+        --toolbar: #111827;
+        --toolbar-text: #f8fafc;
+        --shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .editor-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        grid-template-rows: 64px minmax(0, 1fr) 156px;
+        height: 100vh;
+      }
+
+      .topbar {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 22px;
+        background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%);
+        color: var(--toolbar-text);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .topbar__brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .topbar__logo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 11px;
+        background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+        color: #fff;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .topbar__title {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .topbar__title strong {
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .topbar__title span {
+        font-size: 12px;
+        color: rgba(248, 250, 252, 0.72);
+      }
+
+      .toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .toolbar-badge {
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(248, 250, 252, 0.82);
+        font-size: 12px;
+      }
+
+      .toolbar-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .toolbar-nav button {
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.18s ease, transform 0.18s ease;
+      }
+
+      .toolbar-nav button:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-1px);
+      }
+
+      .toolbar-nav button:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+      }
+
+      .page-indicator {
+        min-width: 96px;
+        text-align: center;
+        font-size: 13px;
+        color: rgba(248, 250, 252, 0.84);
+      }
+
+      .canvas-pane {
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        padding: 24px;
+      }
+
+      .canvas-scroll {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 0;
+        padding: 24px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background:
+          linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+          linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+          #e7ebf2;
+        background-size: 24px 24px, 24px 24px, auto;
+      }
+
+      .canvas-stage {
+        width: min(100%, 1120px);
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .canvas-stage svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .inspector-pane {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 20px 20px 20px 0;
+        min-height: 0;
+      }
+
+      .panel-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+      }
+
+      .panel-card h2,
+      .panel-card h3 {
+        margin: 0 0 12px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .panel-card p,
+      .panel-card li {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .meta-item {
+        border-radius: 14px;
+        padding: 12px;
+        background: var(--panel-muted);
+      }
+
+      .meta-item strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 600;
+      }
+
+      .meta-item span {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip {
+        border-radius: 999px;
+        padding: 7px 10px;
+        background: var(--brand-soft);
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .selection-summary {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .selection-summary__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .selection-summary__meta span {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: var(--panel-muted);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .selection-empty {
+        padding: 14px;
+        border: 1px dashed var(--border-strong);
+        border-radius: 14px;
+        background: var(--panel-muted);
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .property-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .property-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .property-field label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+
+      .property-field input,
+      .property-field textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+        line-height: 1.5;
+        padding: 10px 12px;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      .property-field textarea {
+        min-height: 82px;
+        resize: vertical;
+      }
+
+      .property-field input:focus,
+      .property-field textarea:focus {
+        outline: none;
+        border-color: rgba(79, 70, 229, 0.42);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+      }
+
+      .property-field input[readonly],
+      .property-field textarea[readonly] {
+        background: #f8fafc;
+        color: #64748b;
+      }
+
+      .filmstrip {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px 22px 18px;
+        background: rgba(255, 255, 255, 0.78);
+        backdrop-filter: blur(14px);
+        border-top: 1px solid var(--border);
+      }
+
+      .filmstrip__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .filmstrip__header strong {
+        font-size: 14px;
+      }
+
+      .filmstrip__header span {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .thumbnail-strip {
+        display: flex;
+        gap: 14px;
+        min-height: 0;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+
+      .thumbnail {
+        flex: 0 0 180px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid transparent;
+        border-radius: 18px;
+        background: var(--panel);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+        cursor: pointer;
+        transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      .thumbnail:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+      }
+
+      .thumbnail.is-active {
+        border-color: rgba(79, 70, 229, 0.36);
+        box-shadow: 0 18px 36px rgba(79, 70, 229, 0.18);
+      }
+
+      .thumbnail__preview {
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        border-radius: 12px;
+        background: #dbe3f0;
+      }
+
+      .thumbnail__preview svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      .thumbnail__label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .thumbnail__label strong {
+        font-size: 13px;
+      }
+
+      .thumbnail__label span {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .drop-zone-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(10px);
+        z-index: 50;
+        pointer-events: none;
+      }
+
+      .drop-zone-overlay__card {
+        width: min(540px, calc(100vw - 40px));
+        padding: 28px 32px;
+        border: 1px dashed rgba(255, 255, 255, 0.42);
+        border-radius: 24px;
+        background: rgba(15, 23, 42, 0.84);
+        box-shadow: 0 24px 64px rgba(15, 23, 42, 0.35);
+        color: #f8fafc;
+        text-align: center;
+      }
+
+      .drop-zone-overlay__card strong {
+        display: block;
+        margin-bottom: 10px;
+        font-size: 20px;
+      }
+
+      .drop-zone-overlay__card span {
+        display: block;
+        color: rgba(248, 250, 252, 0.78);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 1100px) {
+        .editor-shell {
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: 64px minmax(360px, 1fr) auto 156px;
+        }
+
+        .inspector-pane {
+          padding: 0 24px 18px;
+        }
+
+        .canvas-pane {
+          padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="editor-shell">
+      <header class="topbar">
+        <div class="topbar__brand">
+          <div class="topbar__logo">PM</div>
+          <div class="topbar__title">
+            <strong>PPT Master Editor</strong>
+            <span>Phase 3 · 文件热更新 + Patch 记录 + SVG 导入</span>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <div class="toolbar-badge">Pure TypeScript + DOM API</div>
+          <div id="stateSourceBadge" class="toolbar-badge">当前数据：内置 Demo</div>
+          <div class="toolbar-nav">
+            <button id="saveJsonBtn" type="button">保存 JSON</button>
+            <button id="exportSvgBtn" type="button">导出 SVG</button>
+            <button id="watchFileBtn" type="button">监听文件</button>
+            <button id="exportPatchBtn" type="button">导出 Patch</button>
+          </div>
+          <div class="toolbar-nav">
+            <button id="prevSlideBtn" type="button">上一页</button>
+            <div id="pageIndicator" class="page-indicator">1 / 1</div>
+            <button id="nextSlideBtn" type="button">下一页</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="canvas-pane">
+        <div id="canvasScroll" class="canvas-scroll">
+          <div id="canvasMount" class="canvas-stage" aria-live="polite"></div>
+        </div>
+      </main>
+
+      <aside class="inspector-pane">
+        <section class="panel-card">
+          <h2>属性面板</h2>
+          <div id="selectionSummary" class="selection-summary"></div>
+          <div id="selectionEmptyState" class="selection-empty">
+            点击画布中的元素后，这里会显示可编辑属性。支持 ESC 或点击空白区域取消选中。
+          </div>
+          <form id="elementFields" class="property-form" autocomplete="off"></form>
+          <div class="chip-list">
+            <div id="patchCountBadge" class="chip">0 次编辑</div>
+          </div>
+        </section>
+
+        <section class="panel-card">
+          <h3>当前页面</h3>
+          <div id="slideMeta" class="meta-grid"></div>
+        </section>
+
+        <section class="panel-card">
+          <h3>元素概览</h3>
+          <div id="elementSummary" class="chip-list"></div>
+        </section>
+      </aside>
+
+      <footer class="filmstrip">
+        <div class="filmstrip__header">
+          <strong>页面缩略图</strong>
+          <span>点击缩略图切换页面，方向键左右翻页</span>
+        </div>
+        <div id="thumbnailStrip" class="thumbnail-strip"></div>
+      </footer>
+
+      <div id="dropZoneOverlay" class="drop-zone-overlay" hidden>
+        <div class="drop-zone-overlay__card">
+          <strong>拖拽 slide_state.json 或 .svg 到这里</strong>
+          <span>支持 JSON 直接替换当前 state，也支持多文件 SVG 导入并自动组装为多页 SlideState。</span>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/app.ts"></script>
+  </body>
+</html>
