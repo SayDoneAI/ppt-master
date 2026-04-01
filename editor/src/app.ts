@@ -26,7 +26,6 @@ import {
   getTopbarSaveActionsState,
   shouldShowPosterCanvasControls,
   resizeSlideStateCanvas,
-  shouldDefaultToPreview,
   supportsCanvasPresetEditing,
 } from './canvas_resize.js'
 import {
@@ -224,7 +223,7 @@ let state = createDemoState()
 let rawSvgStrings: string[] = []
 let stateSourceLabel = '当前数据：加载默认 SVG Demo 中…'
 let currentSlideIndex = 0
-let editorViewMode: EditorViewMode = shouldDefaultToPreview(state) ? 'preview' : 'workspace'
+let editorViewMode: EditorViewMode = 'workspace'
 let hoveredElementId: string | null = null
 let selectedElementId: string | null = null
 let editingTextId: string | null = null
@@ -1726,7 +1725,7 @@ function replaceState(
   state = nextState
   rawSvgStrings = options.rawSvgStrings ? [...options.rawSvgStrings] : []
   stateSourceLabel = sourceLabel
-  editorViewMode = shouldDefaultToPreview(nextState) ? 'preview' : 'workspace'
+  editorViewMode = 'workspace'
   historyPast = []
   historyFuture = []
   patches = []

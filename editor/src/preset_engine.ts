@@ -138,7 +138,9 @@ export function applyColorPreset(scheme: ColorScheme, context: ApplyColorPresetC
 
     const assignments = collectColorRoleAssignments(svg)
     assignments.forEach(assignment => {
-      const color = scheme[COLOR_ROLE_KEYS[assignment.role]]
+      const rawColor = scheme[COLOR_ROLE_KEYS[assignment.role]]
+      // 对文本节点做对比度保护——颜色和背景对比度不够时自动替换
+      const color = ensureTextContrast(assignment.node, rawColor, scheme)
       const result = applyColorToNode(assignment.node, color, assignment.targets)
       if (!result.fill && !result.stroke) return
 
@@ -239,6 +241,7 @@ export function applyFontPreset(scheme: FontScheme, context: ApplyFontPresetCont
 }
 
 export function collectColorRoleAssignments(svg: SVGSVGElement): ColorRoleAssignment[] {
+  const explicitNodes = new Set<SVGElement>()
   const explicit = normalizeColorRoleAssignments(
     Array.from(svg.querySelectorAll<SVGElement>('[data-color-role], [data-color-role-fill], [data-color-role-stroke]')).flatMap(node => {
       const assignments: ColorRoleAssignment[] = []
@@ -247,6 +250,7 @@ export function collectColorRoleAssignments(svg: SVGSVGElement): ColorRoleAssign
       const strokeRole = normalizeColorRole(node.getAttribute('data-color-role-stroke'))
 
       if (sharedRole) {
+        explicitNodes.add(node)
         assignments.push({
           node,
           role: sharedRole,
@@ -255,6 +259,7 @@ export function collectColorRoleAssignments(svg: SVGSVGElement): ColorRoleAssign
       }
 
       if (fillRole) {
+        explicitNodes.add(node)
         assignments.push({
           node,
           role: fillRole,
@@ -263,6 +268,7 @@ export function collectColorRoleAssignments(svg: SVGSVGElement): ColorRoleAssign
       }
 
       if (strokeRole) {
+        explicitNodes.add(node)
         assignments.push({
           node,
           role: strokeRole,
@@ -274,11 +280,16 @@ export function collectColorRoleAssignments(svg: SVGSVGElement): ColorRoleAssign
     }),
   )
 
-  if (explicit.length > 0) return explicit
-
-  const inferred = normalizeColorRoleAssignments(inferColorRoleAssignments(svg))
+  // Always infer roles for unlabeled nodes — even when some nodes have
+  // explicit data-color-role attributes.  Previously the function
+  // early-returned when *any* explicit label existed, leaving unlabeled
+  // text/shapes unchanged when the color scheme switched (invisible text
+  // on a new background).
+  const inferred = normalizeColorRoleAssignments(
+    inferColorRoleAssignments(svg).filter(a => !explicitNodes.has(a.node)),
+  )
   persistInferredColorRoles(inferred)
-  return inferred
+  return [...explicit, ...inferred]
 }
 
 export function collectFontRoleAssignments(svg: SVGSVGElement): Array<{ node: SVGElement; role: FontRole }> {
@@ -353,6 +364,28 @@ export function inferColorRoleAssignments(svg: SVGSVGElement): ColorRoleAssignme
   assignRoleFromBuckets(roleByColor, usedColors, vividBuckets.filter(bucket => !usedColors.has(bucket.color)), 'primary')
   assignRoleFromBuckets(roleByColor, usedColors, vividBuckets.filter(bucket => !usedColors.has(bucket.color)), 'secondary')
   assignRoleFromBuckets(roleByColor, usedColors, vividBuckets.filter(bucket => !usedColors.has(bucket.color)), 'accent')
+
+  // Assign remaining unmatched text colors to the nearest text role by
+  // luminance.  Without this, only one color per text-role gets covered
+  // and other text stays unchanged — potentially invisible on a new
+  // background.
+  const textRoleLuminance: Array<[ColorRole, number]> = (
+    ['text-dark', 'text-light', 'text-muted'] as ColorRole[]
+  ).flatMap(role => {
+    const color = [...roleByColor.entries()].find(([, r]) => r === role)?.[0]
+    if (!color) return []
+    const bucket = buckets.find(b => b.color === color)
+    return bucket ? [[role, bucket.luminance] as [ColorRole, number]] : []
+  })
+
+  textBuckets.forEach(bucket => {
+    if (roleByColor.has(bucket.color)) return
+    if (textRoleLuminance.length === 0) return
+    const closest = textRoleLuminance.reduce((best, candidate) =>
+      Math.abs(candidate[1] - bucket.luminance) < Math.abs(best[1] - bucket.luminance) ? candidate : best,
+    )
+    roleByColor.set(bucket.color, closest[0])
+  })
 
   return buckets.flatMap(bucket => {
     const role = roleByColor.get(bucket.color)
@@ -645,6 +678,53 @@ export function normalizeHexColor(value: string | null): string | null {
 export function getColorLuminance(color: string): number {
   const { r, g, b } = hexToRgb(color)
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+}
+
+/**
+ * WCAG relative luminance using linearized sRGB.
+ * https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+ */
+function srgbRelativeLuminance(hex: string): number {
+  const { r, g, b } = hexToRgb(hex)
+  const lin = (c: number) => {
+    const s = c / 255
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+/**
+ * WCAG 2.1 contrast ratio between two colors (range 1–21).
+ */
+export function wcagContrastRatio(a: string, b: string): number {
+  const la = srgbRelativeLuminance(a)
+  const lb = srgbRelativeLuminance(b)
+  const lighter = Math.max(la, lb)
+  const darker = Math.min(la, lb)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+const MIN_TEXT_CONTRAST = 3.0
+
+/**
+ * For text nodes, ensure the assigned color has enough contrast against the
+ * scheme background. If not, substitute with whichever of textDark / textLight
+ * gives better contrast.
+ */
+function ensureTextContrast(
+  node: SVGElement,
+  color: string,
+  scheme: ColorScheme,
+): string {
+  const tag = node.tagName.toLowerCase()
+  if (tag !== 'text' && tag !== 'tspan') return color
+
+  const ratio = wcagContrastRatio(color, scheme.background)
+  if (ratio >= MIN_TEXT_CONTRAST) return color
+
+  const darkRatio = wcagContrastRatio(scheme.textDark, scheme.background)
+  const lightRatio = wcagContrastRatio(scheme.textLight, scheme.background)
+  return darkRatio >= lightRatio ? scheme.textDark : scheme.textLight
 }
 
 export function getColorSaturation(color: string): number {
