@@ -216,6 +216,49 @@
 
 详细字体分类参见 [design_guidelines.md](../docs/design_guidelines.md#字体选择)
 
+## SVG 语义标记协议（编辑器预设系统）
+
+为支持编辑器在“直接编辑 SVG”模式下按语义批量替换预设配色与字体，生成 SVG 时应补充以下语义标记。这些标记**不影响渲染结果**，但能让编辑器按语义批量替换配色/字体。
+
+### `data-color-role`
+
+| 角色 | 用途说明 |
+|------|----------|
+| `primary` | 主品牌色，用于主标题、核心图形、关键强调区块 |
+| `secondary` | 次级品牌色，用于辅助信息块、次要图形、图表辅助系列 |
+| `accent` | 强调色，用于按钮、徽章、重点数字、需要立即关注的视觉锚点 |
+| `text-dark` | 深色文本，用于浅底上的标题、正文、说明文字 |
+| `text-light` | 浅色文本，用于深底或彩色底上的标题、正文、标签文字 |
+| `text-muted` | 弱化文本，用于注释、辅助说明、来源、次级信息 |
+| `background` | 主背景色，用于整页底色、主要卡片底色、大面积背景区域 |
+| `background-alt` | 替代背景色，用于分区底色、次级卡片底色、层次区分背景 |
+
+### `data-font-role`
+
+| 角色 | 用途说明 |
+|------|----------|
+| `title` | 标题级文本，如封面标题、页标题、章节标题 |
+| `body` | 正文级文本，如段落、要点列表、数据说明 |
+| `caption` | 注释级文本，如图注、脚注、来源、补充说明 |
+| `label` | 标签级文本，如按钮文案、徽章、图例、字段标签 |
+
+### XML 示例
+
+```xml
+<rect data-color-role="background" width="1280" height="720" fill="#FFFFFF" />
+<text data-color-role="primary" data-font-role="title" x="100" y="300" font-family="PingFang SC" font-size="60" font-weight="bold" fill="#005587">标题</text>
+<text data-color-role="text-dark" data-font-role="body" x="100" y="400" font-family="PingFang SC" font-size="18" fill="#1A1A2E">正文内容</text>
+<rect data-color-role="accent" x="100" y="500" width="200" height="60" rx="8" fill="#F5A623" />
+<text data-color-role="text-light" data-font-role="label" x="200" y="540" text-anchor="middle" fill="#FFFFFF">按钮</text>
+```
+
+### 标记规则
+
+- 每个有颜色的 SVG 元素都应打 `data-color-role`
+- 每个文字元素都应同时打 `data-color-role` 和 `data-font-role`
+- 纯装饰元素如有颜色也应打 `data-color-role`
+- 这些标记不影响渲染，但让编辑器能按语义批量替换配色/字体
+
 ### PPT 兼容性规则（必须遵守）
 
 为确保导出 PPT 后效果一致，**透明度必须使用标准写法**：
@@ -330,4 +373,3 @@ python3 tools/finalize_svg.py <项目路径>
 # 3. 导出 PPTX
 python3 tools/svg_to_pptx.py <项目路径> -s final
 ```
-

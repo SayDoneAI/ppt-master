@@ -219,6 +219,119 @@
   - Build verification: `cd editor && npm run build` 通过
   - Bridge smoke test: `python3 tools/slide_state_bridge.py sync /var/folders/ht/c7lrl_n92mlc_c6kl45dg3kh0000gn/T/tmp.lEJ8fMg3Qv/project` 通过，成功生成 `slide_state.json` 并回写 `10` 个 SVG
 
+### Preset follow-up spec 修复
+- **Status:** complete
+- Actions taken:
+  - 重写 `editor/src/presets/colors.ts` 的 `ColorScheme` 结构，新增 `category`，并将 19 套配色的 `id / 中文名 / primary / secondary / accent` 对齐 follow-up spec
+  - 统一颜色预设默认文本/背景色为 `#1A1A2E / #FFFFFF / #6B7280 / #FFFFFF / #F5F5F5`
+  - 重写 `editor/src/presets/fonts.ts` 的 `FontScheme` 结构为 `id / name / title / body / caption / label`，仅保留 5 套字体方案
+  - 更新 `editor/src/app.ts` 的字体 preset UI 和 `data-font-role` 映射逻辑，改为消费新字段名，同时保持原有卡片和应用行为
+  - 更新 `editor/src/__tests__/presets.test.ts`，用精确断言覆盖分类、默认色和 5 套字体方案
+- Files created/modified:
+  - `editor/src/presets/colors.ts`
+  - `editor/src/presets/fonts.ts`
+  - `editor/src/app.ts`
+  - `editor/src/__tests__/presets.test.ts`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Build verification: `cd editor && npm run build` 通过，Vite 输出 `20 modules transformed`
+  - Test verification: `cd editor && npm run test` 通过，`11` 个 test files、`65` 个 tests 全部通过
+
+### Phase 1 Step 1/5：SVG 直接加载渲染
+- **Status:** complete
+- Actions taken:
+  - 在 `editor/src/app.ts` 增加 `rawSvgStrings: string[]`，并让 SVG 文件拖入、`?svg=` URL、默认 demo 真实 SVG 都保留原始字符串
+  - 修改 `renderCanvas()` / `renderThumbnails()`，优先渲染 raw SVG；缺失时 fallback 到 `slideToSvg()`
+  - 增加 raw SVG ↔ state 同步层：重绘前先把 state 的文本/几何/样式字段写回 raw SVG，再挂到 DOM
+  - 导出 SVG 改成导出当前 canvas 的 live DOM，并在序列化前移除 editor overlay / text editor 临时节点
+  - 在 `editor/src/svg_to_state.ts` 新增 `normalizeSvgForEditor()`，统一补 `data-element-id`、复用原始 `id`，并支持 `preserveTextNodes`
+  - 在 `editor/vite.config.ts` 增加 `/examples/...` 静态暴露与 build 后 demo 资源复制，确保默认 demo 路径在 dev/build/preview 下都可访问
+  - 扩展 `editor/src/__tests__/svg_to_state.test.ts`，覆盖原始 ID 复用、`preserveTextNodes`、相对图片 href 规范化
+- Files created/modified:
+  - `editor/src/app.ts`
+  - `editor/src/svg_to_state.ts`
+  - `editor/vite.config.ts`
+  - `editor/src/__tests__/svg_to_state.test.ts`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Test verification: `cd editor && npm run test` 通过，`10` 个 test files、`62` 个 tests 全部通过
+  - Build verification: `cd editor && npm run build` 通过
+  - Preview smoke: `cd editor && npm run preview -- --host 127.0.0.1 --port 4173` 后，`curl -I http://127.0.0.1:4173/examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg` 返回 `HTTP/1.1 200 OK`
+  - Asset smoke: `curl -I http://127.0.0.1:4173/examples/demo_project_intro_ppt169_20251211/images/cover_background.png` 返回 `HTTP/1.1 200 OK`
+
+### Editor 单页海报预览模式
+- **Status:** complete
+- Actions taken:
+  - 在 `editor/src/canvas_resize.ts` 落地单页海报画布预设工具：`1:1`、`4:5`、`9:16`
+  - 在 `editor/src/app.ts` 补齐单页 `preview/workspace` 双模式切换，单页竖版默认进入纯预览模式
+  - 纯预览模式下隐藏右侧工作台与底部缩略图，只保留海报和顶部比例切换控制
+  - 新增实时比例切换，点击后直接缩放 `slide_state` 的 canvas 与基础元素，不再只是浏览器缩放
+  - 收敛 `editor/index.html` 顶栏与右侧文案，把“AI 回合”改成更明确的“AI 改稿”
+  - 将海报 demo 状态替换为正常活动海报内容，避免预览页继续显示聊天式文案
+- Files created/modified:
+  - `editor/index.html`
+  - `editor/src/app.ts`
+  - `editor/src/canvas_resize.ts`
+  - `editor/src/__tests__/canvas_resize.test.ts`
+  - `.cache/poster_preview_demo/slide_state.json`
+- Validation:
+  - Test verification: `cd editor && npm test` 通过，`10` 个 test files、`60` 个 tests 全部通过
+  - Build verification: `cd editor && npm run build` 通过
+  - Browser verification:
+    - 默认载入 `poster_preview_demo/slide_state.json` 时，`.editor-shell` 为 `editor-shell--single-slide editor-shell--preview`
+    - 纯预览模式下 `inspector-pane` 为 `display: none`，`filmstrip` 为 hidden
+    - `4:5 -> 1:1 -> 9:16` 比例切换会实时更新画布尺寸，浏览器实测分别为 `1080×1350`、`1080×1080`、`1080×1920`
+    - 切回“返回编辑”后右侧工作台恢复，按钮文案改为“纯预览”
+  - Screenshot:
+    - `/Users/haoguang/Downloads/poster_preview_mode_check_2026-03-31T15-31-11-138Z.jpg`
+
+### Editor 交互收敛：AI 回合优先，高级入口折叠
+- **Status:** complete
+- Actions taken:
+  - 重排 `editor/index.html` 右侧栏顺序，把 `AI 回合` 提到首位，`属性面板` 下移到第二卡片
+  - 收敛 AI 文案与按钮语义：主流程改成“绑定项目预览 -> 导出 AI 请求 -> 自动刷新 -> 人工微调”
+  - 把 `Patch 回流 / 模板图表导入 / 兼容拖拽` 收进折叠式高级入口，避免与主流程并列暴露
+  - 在 `editor/src/app.ts` 中统一 AI / 资产导入状态文案，显式区分“自动刷新”与“未绑定项目”
+  - 发现并修复 `dropZoneOverlay` 首屏可见问题：补充 `[hidden] { display: none !important; }`
+  - 浏览器实测本地 dev 页面，确认首屏已变成“AI 回合工作台”而非拖拽 playground
+- Files created/modified:
+  - `editor/index.html`
+  - `editor/src/app.ts`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Test verification: `cd editor && npm test` 通过，`9` 个 test files、`56` 个 tests 全部通过
+  - Build verification: `cd editor && npm run build` 通过
+  - Browser verification: `http://localhost:5173/` 首屏右侧先显示 `AI 回合`，主按钮可见；`高级入口` 默认折叠；拖拽遮罩默认隐藏
+  - Screenshots:
+    - `/Users/haoguang/Downloads/ppt-editor-ai-loop_2026-03-31T13-40-48-012Z.jpg`（发现遮罩 bug）
+    - `/Users/haoguang/Downloads/ppt-editor-ai-first-tight_2026-03-31T13-44-37-339Z.jpg`（修正后首屏）
+
+### Editor 预览适配：单页海报自动完整 fit
+- **Status:** complete
+- Actions taken:
+  - 在 `editor/src/app.ts` 增加 `syncCanvasStageSize()`，按当前画布比例和 `canvasScroll` 的可用宽高自动计算预览宽度
+  - 在 `editor/src/app.ts` 增加单页检测：只有 1 页时自动隐藏 `.filmstrip`，并给 `.editor-shell` 加上 `editor-shell--single-slide`
+  - 在 `editor/index.html` 增加对应的单页 grid 布局规则，回收底部缩略图栏占用的高度
+  - 用真实临时海报 `/.cache/poster_preview_demo/slide_state.json` 做浏览器 smoke，确认无需人工缩放即可完整看到整张海报
+- Files created/modified:
+  - `editor/index.html`
+  - `editor/src/app.ts`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Test verification: `cd editor && npm test` 通过，`9` 个 test files、`56` 个 tests 全部通过
+  - Build verification: `cd editor && npm run build` 通过
+  - Browser verification: 单页海报 URL 首屏完整显示，底部缩略图栏自动隐藏
+  - Screenshots:
+    - `/Users/haoguang/Downloads/poster-editor-fit-fixed_2026-03-31T14-40-40-157Z.jpg`
+
 ### Phase 3：编辑器 AI Handoff（Claude Code / Codex skill）
 - **Status:** complete
 - Actions taken:
@@ -416,3 +529,179 @@
   - Editor build: `cd editor && npm run build` 通过
   - Browser smoke: 用 `?state=/@fs/.../slide_state.json` 成功绑定工作区外临时项目，不再出现 403
   - End-to-end handoff smoke: 在绑定项目的浏览器编辑器里点击 `导出 AI Handoff` 后，`<项目>/.cache/ai_handoff/design_patch.ai-request.json` 与 `<项目>/.cache/ai_handoff/design_patch.ai-handoff.md` 都已成功写入，且 note 内部引用的是 `.cache/ai_handoff/design_patch.ai-request.json`
+
+### Step 1/5：SVG 直接加载渲染
+- **Status:** complete
+- Actions taken:
+  - 在 `editor/src/app.ts` 增加 `rawSvgStrings`，并让 `renderCanvas()` / `renderThumbnails()` 优先渲染 raw SVG，缺失时再 fallback 到 `slideToSvg()`
+  - 把 `?svg=`、SVG 拖入和默认 demo 真实 SVG 都接入 raw 路径；JSON 加载继续走 `slide_state`，同时清空 `rawSvgStrings`
+  - 在 `editor/src/svg_to_state.ts` 增加 `normalizeSvgForEditor()`，为 `text/rect/circle/line/path/image/g` 注入稳定 `data-element-id`，并在解析时复用原始 id
+  - 为 raw 路径启用 `preserveTextNodes`，避免相邻 `<text>` merge 破坏 DOM/state 1:1 映射
+  - 增加 render 前 `state → raw SVG` 同步层，覆盖文本、几何与常用样式字段，避免属性编辑/拖拽/双击编辑后重绘丢失当前改动
+  - 默认 demo 改为优先加载 `examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg`；`vite.config.ts` 补充 `/examples/...` 的 dev/build 暴露
+  - 导出 SVG 改为导出当前 canvas 上编辑后的真实 SVG，并移除 overlay / text editor 这类编辑器运行时节点
+- Files created/modified:
+  - `editor/src/app.ts`
+  - `editor/src/svg_to_state.ts`
+  - `editor/vite.config.ts`
+  - `editor/src/__tests__/svg_to_state.test.ts`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Build verification: `cd editor && npm run build` 通过
+  - Test verification: `cd editor && npm run test` 通过，`10` 个 test files、`62` 个 tests 全部通过
+
+### Step 2/5：中文 inspector + 配色/字体预设
+- **Status:** complete
+- Actions taken:
+  - 在 `editor/src/app.ts` 重写 inspector 字段模型，新增 `color / range / select` 三种输入类型，并把 `text / rect / circle / line / path / image` 的标签改成中文
+  - 为文本元素增加虚拟字段 `fontSize / fontWeight`，通过现有 `parseFontSpec()` 解析 `font` shorthand，并在修改时同步回写 `font / fontSize / fontWeight / fontFamily`
+  - 为 inspector 加入 `<details><summary>高级</summary>...</details>`，把 `x/y/width/d/font(raw)/lineHeight` 等技术字段折叠到高级区
+  - 新增 `editor/src/presets/colors.ts` 与 `editor/src/presets/fonts.ts`，分别提供 `19` 套配色和 `5` 套字体方案
+  - 在 `editor/index.html` 侧栏新增两个折叠区：`配色方案` 与 `字体风格`，并只用内联 CSS 实现 preset card 栅格
+  - 在 `editor/src/app.ts` 新增 `renderColorPresets()` / `renderFontPresets()`，点击后遍历 raw SVG 中的 `data-color-role / data-font-role`，同步更新 live DOM、`slide_state` 和 `rawSvgStrings`
+  - 为没有 `data-color-role` 的 SVG 加入简化版颜色聚类 fallback，至少能根据已有实色块和文字颜色做背景/正文/主色推断
+  - 新增 `editor/src/__tests__/presets.test.ts`，校验 preset catalog 数量、唯一 id 与关键色值
+- Files created/modified:
+  - `editor/src/app.ts`
+  - `editor/index.html`
+  - `editor/src/presets/colors.ts`
+  - `editor/src/presets/fonts.ts`
+  - `editor/src/__tests__/presets.test.ts`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Build verification: `cd editor && npm run build` 通过
+  - Test verification: `cd editor && npm test` 通过，`11` 个 test files、`65` 个 tests 全部通过
+  - Browser smoke: 以 `http://localhost:4173/?svg=/@fs/tmp/preset-demo.svg` 加载带 `data-color-role / data-font-role` 的临时 SVG 后，点击 `咨询风格` 色卡，`card.fill` 从 `#3366FF` 变为 `#005587`，`title.fill` 从 `#0F172A` 变为 `#1A252F`，`divider.stroke` 从 `#FF6600` 变为 `#F5A623`
+  - Browser smoke: 选中 `title` 文本后，右侧面板出现 `文字内容 / 字号 / 颜色 / 粗细 / 高级`，DOM 中确认颜色控件是原生 `input[type=\"color\"]`，字号控件是 `input[type=\"range\"]`
+  - Browser smoke: 页面内实际渲染 `19` 个配色 preset 与 `5` 个字体 preset
+
+### Step 3/5：更新 Executor 角色定义 + 全量验证
+- **Status:** complete
+- Actions taken:
+  - 在 `roles/Executor_General.md`、`roles/Executor_Consultant.md`、`roles/Executor_Consultant_Top.md` 的“字体使用”和 “PPT 兼容性规则”之间插入统一章节 `SVG 语义标记协议（编辑器预设系统）`
+  - 章节明确要求 AI 生成 SVG 时为所有有颜色元素补 `data-color-role`，为所有文字元素同时补 `data-color-role` 与 `data-font-role`
+  - 三个角色文档中的章节内容保持一致，包含 `primary / secondary / accent / text-dark / text-light / text-muted / background / background-alt` 与 `title / body / caption / label` 的角色说明，以及约定 XML 示例
+- Files created/modified:
+  - `roles/Executor_General.md`
+  - `roles/Executor_Consultant.md`
+  - `roles/Executor_Consultant_Top.md`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Build verification: `cd editor && npm run build` 通过，执行链路为 `tsc && vite build`
+  - Test verification: `cd editor && npm test` 通过，`11` 个 test files、`65` 个 tests 全部通过
+  - TypeScript verification: 未出现 TypeScript 编译错误；已包含在 `npm run build` 的 `tsc` 阶段
+
+### UX 修复批次：旧 UI 隐藏 + 文本拖拽/边界 + 侧栏压缩
+- **Status:** complete
+- Actions taken:
+  - 在 `editor/index.html` 隐藏 `saveJsonBtn`，并把右侧旧的 AI 协作区、资产导入区改为 `hidden` 保留
+  - 重排右侧栏顺序为“属性面板优先，配色/字体默认折叠”，同时压缩 panel / form / preset card 的 padding、行高和网格密度
+  - 在 `editor/src/app.ts` 删除保存 JSON 的快捷键/绑定，`⌘/Ctrl+S` 统一改为导出当前 SVG
+  - 在 `editor/src/app.ts` 为 `.sidebar-section` 增加启动时强制折叠，避免浏览器恢复旧展开状态
+  - 修复文本拖拽与缩放：move 路径按交互框整体 clamp 到画布内；text resize 允许上下手柄并回写 `maxHeight`；历史栈额外记录 `text.maxHeight`
+  - 在 `editor/src/svg_to_state.ts` 把导入文本框宽度从固定 `1200` 改为按文本长度/字号/锚点/可用宽度估算，并为此补了测试断言
+- Files created/modified:
+  - `editor/index.html`
+  - `editor/src/app.ts`
+  - `editor/src/svg_to_state.ts`
+  - `editor/src/__tests__/svg_to_state.test.ts`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Build verification: `cd editor && npm run build` 通过
+  - Test verification: `cd editor && npm test` 通过，`11` 个 test files、`65` 个 tests 全部通过
+  - Browser smoke: `http://localhost:5175/?smoke=5`
+  - Browser verification: `saveJsonBtn` 不可见；旧 AI/资产按钮在 DOM 中但不可见；配色/字体默认折叠
+  - Browser verification: 修改 `prop-x` 从 `100` 到 `140` 后，`undoBtn` 可撤回到 `100`，`redoBtn` 可恢复到 `140`
+  - Browser verification: 文本元素拖拽后 `x/y` 同时变化；拖到右下角时 `x + width = 1280`，未越出画布
+  - Screenshot:
+    - `/Users/haoguang/Downloads/editor-ux-collapsed_2026-04-01T02-21-37-411Z.png`
+    - `/Users/haoguang/Downloads/editor-ux-selected-compact_2026-04-01T02-27-17-648Z.png`
+
+### 功能修复批次：PNG 导出 / 保存模板 / 免费字体预设 / demo 清理
+- **Status:** complete
+- Actions taken:
+  - 在 `editor/index.html` 工具栏的 `exportSvgBtn` 旁新增 `exportPngBtn` 与 `saveTemplateBtn`
+  - 在 `editor/src/app.ts` 复用现有 SVG 直出链路，补 `downloadCurrentCanvasPng()`、`downloadCurrentCanvasTemplateSvg()` 与导出辅助函数
+  - PNG 导出改为先克隆当前 canvas SVG、移除 overlay，再按 `viewBox` 或 `width/height` 栅格化到 `canvas`
+  - 对 SVG 里的 `<image href>` 先尝试 `fetch -> data URL` 内嵌；失败时回退为绝对 URL，并在导出后提示可能缺图
+  - 把 `editor/src/presets/fonts.ts` 从旧的 5 套系统字体方案切到 6 套免费商用字体方案，并同步更新 `editor/src/__tests__/presets.test.ts`
+  - 直接编辑 `examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg`，移除 GitHub / MIT 标注文案
+- Files created/modified:
+  - `editor/index.html`
+  - `editor/src/app.ts`
+  - `editor/src/presets/fonts.ts`
+  - `editor/src/__tests__/presets.test.ts`
+  - `examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg`
+  - `task_plan.md`
+  - `progress.md`
+- Validation:
+  - Grep verification: `rg -n "github.com/hugohe3/ppt-master|MIT License" examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg` 无输出
+  - Grep verification: `rg -n "exportPngBtn|saveTemplateBtn|导出 PNG|保存模板" editor/index.html editor/src/app.ts` 命中新增按钮与绑定
+  - Build verification: `cd editor && npm run build` 通过
+  - Test verification: `cd editor && npm test` 通过，`11` 个 test files、`65` 个 tests 全部通过
+
+### Claude 接力收口：配色按钮 / 字体溢出 / preset 测试同步
+- **Status:** complete
+- Actions taken:
+  - 读取当前项目对应的 Claude Code 本地会话 `~/.claude/projects/-Users-haoguang-Documents-RedCode-xingbao-ppt-master/94440a0a-1d42-4515-ad8c-75a064606ad7.jsonl`，确认它已完成 `colors.ts` 的 16 套 curated 配色替换，但停在 `app.ts` / `index.html` / `presets.test.ts` 未收口的状态
+  - 在 `editor/src/app.ts` 将 `renderColorPresets()` 改为纯颜色条按钮，去掉可见文字并保留 `title` / `aria-label`
+  - 在 `editor/src/app.ts` 的字体 preset 按钮补 `title`，保证长名称被截断后仍可悬浮查看
+  - 在 `editor/index.html` 增加 `.preset-card--color`、`.preset-card__bars`、`.preset-card__bar` 样式，并为 preset 卡片补 `min-width: 0` / `overflow: hidden`
+  - 在 `editor/index.html` 将字体 preset 网格在当前侧栏宽度下改为 2 列，并用省略号处理长名称，消除按钮明显溢出
+  - 在 `editor/src/__tests__/presets.test.ts` 把旧的 `19` 套 + `design` 分类断言同步为当前 `16` 套、`universal | mood | industry` 规范
+- Files created/modified:
+  - `editor/src/app.ts`
+  - `editor/index.html`
+  - `editor/src/__tests__/presets.test.ts`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Test verification: `cd editor && npm test` 通过，`11` 个 test files、`65` 个 tests 全部通过
+  - Build verification: `cd editor && npm run build` 通过，产物为 `dist/app/index.html` 与 `dist/app/assets/index-DzsouZYs.js`
+  - Failure resolved: 之前的 `presets.test.ts` 旧断言导致 `npm test` 两个失败，`npm run build` 出现 `TS2367`；本轮已清除这两个阻塞点
+
+### 文本 resize 语义修复：side handle 改宽、corner handle 缩字、拖拽实时重排
+- **Status:** complete
+- Actions taken:
+  - 在 `editor/src/text_resize.ts` 抽出文本 resize 的最小 helper，集中定义文本元素专属 handle 集合、`applyTextResizeSemantics()` 和 `syncTextSvgNodes()`
+  - 在 `editor/src/app.ts` 的 overlay 渲染路径中改为按元素类型取 handle 集合，文本仅显示 `nw / ne / e / se / sw / w`
+  - 在 `editor/src/app.ts` 的文本 resize 路径中接入 helper：`e / w` 只改 `width` 和锚点；四角 handle 同步缩放 `fontSize / lineHeight` 并更新 `maxHeight`
+  - 在 `editor/src/app.ts` 的 `syncTextNodePreview()` 中改为重建 live `<text>/<tspan>` 结构，使 pointermove 阶段就按最新 `width` 重排行
+  - 新增 `editor/src/__tests__/text_resize.test.ts`，覆盖文本 handle 集合、侧边手柄不改字号、角手柄会改字号，以及 live preview 会重建断行结构
+- Files created/modified:
+  - `editor/src/app.ts`
+  - `editor/src/text_resize.ts`
+  - `editor/src/__tests__/text_resize.test.ts`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+- Validation:
+  - Test verification: `cd editor && npm test` 通过，`12` 个 test files、`69` 个 tests 全部通过
+  - Build verification: `cd editor && npm run build` 通过，执行链路为 `tsc && vite build`
+
+### 顶部比例控件收敛为海报画幅入口（2026-04-01）
+- **Status:** complete
+- Actions taken:
+  - 在 `editor/src/canvas_resize.ts` 新增 `isPptCanvas()`、`isPosterCanvas()`、`shouldShowPosterCanvasControls()` 纯函数，把“是否显示顶部比例控件”从“单页即可”收敛为“单页且当前画布命中海报预设”
+  - 在 `editor/src/app.ts` 让 `renderPosterPreviewControls()` 与按钮点击守卫统一走 `shouldShowPosterCanvasControls(state)`，保持 `supportsCanvasPresetEditing()` 继续只负责按钮禁用态
+  - 在 `editor/index.html` 将顶部文案从“海报预览”调整为“海报画幅”
+  - 在 `editor/src/__tests__/canvas_resize.test.ts` 补充单页 PPT `1280x720` / `1024x768`、多页、以及 `square/poster/story` 海报场景覆盖
+- Files created/modified:
+  - `editor/src/canvas_resize.ts`
+  - `editor/src/app.ts`
+  - `editor/index.html`
+  - `editor/src/__tests__/canvas_resize.test.ts`
+  - `progress.md`
+- Validation:
+  - Test verification: `cd editor && npm test` 通过，`12` 个 test files、`71` 个 tests 全部通过
+  - Build verification: `cd editor && npm run build` 通过，执行链路为 `tsc && vite build`
+  - Behavior verification: 多页不显示；单页 `1280x720` / `1024x768` 不显示；单页 `square/poster/story` 显示

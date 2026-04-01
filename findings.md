@@ -155,6 +155,31 @@ function textElementToSvg(el: TextElement): string {
   - `design_patch.ai-request.json`：机器可读 handoff JSON（含 `aiCommand`、最近 patch），是本地 skill / command 的正式输入
   - `design_patch.ai-handoff.md`：给 Claude Code / Codex 本地 skill / command 的执行说明
 
+### AI + 人交互主逻辑收敛（2026-03-31）
+- 正确的默认交互不是“拖一个 patch/json 给编辑器”，也不是“先挑模板再说”，而是单线程回合式协作：
+  - 用户说想做什么页面或海报
+  - 编辑器绑定项目内 `slide_state.json`
+  - AI 修改同一份 state，预览自动刷新
+  - 人直接拖拽 / 双击文本 / 改属性做快调
+  - 再把更大的改动继续丢回给 AI
+- 因此 UI 层做了三条明确收敛：
+  - `AI 回合` 提升到右侧第一卡片，首屏直接可见
+  - `绑定项目预览` + `导出 AI 请求` 作为主按钮，直接服务“自动刷新”的闭环
+  - `Patch 回流 / 模板图表导入 / 拖拽兼容` 全部收进折叠式高级入口
+- 这个决策的意义：
+  - AI 和人围绕同一个真相源反复接力，不再频繁搬运文件
+  - “看预览 -> 改一点 -> 立即看结果”变成默认体验，而不是手动兜底
+  - 模板库和兼容拖拽仍保留，但不再误导用户把次级路径当主流程
+
+### 海报预览适配（2026-03-31）
+- 之前编辑器画布只按宽度限制 `.canvas-stage`，导致竖版海报会超出可视高度，看不完整页。
+- 现在改成基于 `canvasScroll` 可用宽高自动计算 stage 宽度：
+  - 先扣除滚动容器 padding
+  - 按 `canvas.width / canvas.height` 计算宽高比
+  - 使用 `min(availableWidth, availableHeight * aspectRatio, 1120)` 作为最终渲染宽度
+- 同时，单页场景会自动隐藏底部缩略图栏，并切换 `.editor-shell--single-slide` 布局，避免 156px 的固定 footer 白白占掉海报可视高度。
+- 结果：单页竖版海报现在能在首屏完整展示，不需要再靠浏览器临时缩放或手工隐藏区域。
+
 ### Editor Roundtrip 验证（2026-03-31）
 - 使用真实资产 `examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg` 做 `svgToSlide → slideToSvg → svgToSlide` 往返验证。
 - 当前实现对该页保留了稳定的结构计数：
@@ -168,6 +193,17 @@ function textElementToSvg(el: TextElement): string {
   - `linearGradient=1`
 - `linearGradient#gradient1` 的坐标属性与两个 stop 颜色在往返后均保持一致。
 - 这说明当前解析/导出链路对 demo cover 页的关键结构保真度达到可回归测试级别。
+
+### Preset Follow-up Spec 对齐（2026-04-01）
+- `editor/src/presets/colors.ts` 已进一步从旧 follow-up spec 收敛为 16 套更通用的 curated 配色，面向“普通用户一键换风格”而不是旧的 design/industry 对照表。
+- `ColorScheme` 当前分类是 `category: 'universal' | 'mood' | 'industry'`，并统一默认文本/背景色：
+  - `textDark #1A1A2E`
+  - `textLight #FFFFFF`
+  - `textMuted #6B7280`
+  - `background #FFFFFF`
+  - `backgroundAlt #F5F5F5`
+- `editor/src/presets/fonts.ts` 已收敛为 6 套免费商用方案，字段名改为 `title/body/caption/label`；旧的 `previewText` 和 `*Family` 命名已移除。
+- `editor/src/app.ts` 当前字体 preset UI 只显示 `scheme.name`，实际应用时按 `data-font-role` 映射到 `title/body/caption/label`。
 
 ### Editor MVP 入口页（2026-03-31）
 - 新增 `editor/index.html` 作为浏览器编辑器入口，布局为深色顶栏 + 左侧 SVG 画布 + 右侧属性面板 + 底部缩略图条。
@@ -193,6 +229,26 @@ function textElementToSvg(el: TextElement): string {
   - `path`: `fill / d(只读)`
   - `image`: `x / y / width / height / href`
   - `line`: `x1 / y1 / x2 / y2 / stroke`
+
+### Raw SVG 直接渲染落地（2026-03-31）
+- `editor/src/app.ts` 现在维护 `rawSvgStrings: string[]`，并在三条入口写入原始 SVG：
+  - SVG 文件拖入
+  - `?svg=` URL 加载
+  - 默认 demo 真实 SVG (`/examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg`)
+- 渲染策略改成：
+  - `renderCanvas()` / `renderThumbnails()` 先用 raw SVG
+  - raw 与 state 有偏差时，先把 state 的已知字段同步回 raw SVG，再渲染
+  - 如果 raw SVG 里缺少 state 中的新元素，则单页回退到 `slideToSvg()`，避免空白或交互失效
+- `editor/src/svg_to_state.ts` 新增 `normalizeSvgForEditor()`：
+  - 对 `text / rect / circle / line / path / image / g` 注入稳定 `data-element-id`
+  - 优先复用现有 `data-element-id` / `id`
+  - 解析阶段也会复用这些 id，避免 raw DOM 和 state 的元素映射漂移
+  - `preserveTextNodes` 模式下不再 merge 相邻 `text`，优先保留 1:1 DOM/state 映射
+- 文本编辑和拖拽的兼容处理：
+  - raw SVG 多行文本改成单个 `<text>` + 多个 `<tspan>`，这样 state 里仍是一个 `TextElement`
+  - 拖拽预览会同时同步根 `<text>` 与其 `tspan` 的 `x/y`
+- 导出 SVG 改为导出当前 canvas 上的 live DOM（移除 editor overlay 后序列化），不再从 `SlideState` 重生成。
+- 为了让默认 demo 在 Vite dev/build/preview 下都能访问，`editor/vite.config.ts` 新增了 `/examples/...` 静态暴露，并在 build 后复制 demo SVG 和背景图到 `dist/app/examples/...`。
   - `circle`: `cx / cy / r / fill`
 - 当前更新策略是“改字段 → 直接 mutate slide_state → 局部重渲染 canvas + thumbnails”；不重建 inspector form，因此输入焦点不会因为实时渲染丢失。
 - 浏览器验收中发现一个真实边角：最初只监听了 `canvasScroll` 空白点击，点击 `.canvas-pane` padding 不会取消选中；后来扩展到整个 `.canvas-pane` 后通过验证。
@@ -320,6 +376,113 @@ function textElementToSvg(el: TextElement): string {
   - `cd editor && npm test` 通过，`6` 个 test files、`46` 个 tests 全部通过
   - `cd editor && npm run build` 通过
   - `design_patch.test.ts` 已覆盖：AI handoff 请求生成、design patch 解析、update/add/reorder 应用回 state
+
+### Raw SVG 直渲染基线（2026-03-31）
+- editor 现在形成了双轨模型：
+  - `state` 继续作为属性面板、拖拽、双击文本编辑与 patch 的数据源
+  - `rawSvgStrings` 成为渲染优先级最高的来源，只有缺失或结构失配时才 fallback 到 `slideToSvg()`
+- raw SVG 在进入 editor 前会统一标准化：
+  - 给 `text`、`rect`、`circle`、`line`、`path`、`image`、`g` 注入稳定 `data-element-id`
+  - 解析时优先复用原始 `data-element-id` / `id`
+  - raw 路径启用 `preserveTextNodes`，避免相邻 `<text>` merge 掉以后破坏 DOM/state 对位
+- 为防止属性编辑/拖拽/双击文本后 re-render 回退到旧 SVG，当前实现采用“render 前 state → raw SVG 同步”：
+  - 能按 `data-element-id` 找到原节点时，就把文本、几何和常用样式字段写回 raw SVG
+  - 一旦某页结构和 raw SVG 严重偏离，就自动回退到 `slideToSvg()`，优先保证正确性
+- 默认 demo 已切到真实资产路径 `/examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg`
+  - `vite.config.ts` 额外把该 demo SVG 与 `images/cover_background.png` 暴露到 dev/build/preview，可直接 fetch
+- 当前已知边界：
+  - 结构性 patch 可能使单页降级回 `slideToSvg()`，从而损失部分原始视觉细节
+  - 任意本地拖入 SVG 若依赖相对图片资源，而浏览器拿不到对应图片文件，图片仍可能无法显示
+
+### Step 2/5：普通人友好 inspector 与预设系统（2026-04-01）
+- inspector 不再把 `font / fill / rx / x1 / cx` 这类技术字段直接暴露给普通用户，而是拆成：
+  - 主区：中文标签 + 颜色选择器 / slider / select
+  - 高级区：坐标、原始 `font` shorthand、路径数据等
+- 文本元素的 `fontSize / fontWeight` 不能只写回显式属性，否则 `font` shorthand 与 `slide_state` 会漂移，后续 `syncTextElementNode()`、导出和撤销/重做都会出现不一致。
+  - 本轮采用的稳定策略是：任何字号/字重/字体族修改都统一回写 `font`，同时同步 `fontSize / fontWeight / fontFamily`
+  - `parseFontSpec()` 继续沿用现有正则，避免和现有 `state_to_svg.ts` / `svg_to_state.ts` 解析逻辑分叉
+- 配色预设的真正难点不是 UI，而是“点卡片后，live SVG、`slide_state`、`rawSvgStrings` 三份状态必须一起变”。
+  - 如果只改 DOM，下一次 render 会被 state 覆盖
+  - 如果只改 state，没有 raw SVG 同步则会丢掉真实 SVG 的细节结构
+  - 因此本轮 preset click 走的是：解析 raw SVG → 改有角色的节点 → 回写对应 state 元素属性 → 保存回 `rawSvgStrings`
+- 对已有 `data-color-role` / `data-font-role` 的 SVG，当前行为是确定性的。
+- 对没有颜色角色标记的 SVG，当前 fallback 只做“够用”的颜色桶推断：
+  - 根据 fill/stroke 的实色、面积、亮度和饱和度，粗分出 `background / background-alt / text-dark / text-light / text-muted / primary / secondary / accent`
+  - 这足够支撑基础 demo 和简单页面，但还不是设计级精确映射
+- 颜色/字体 preset catalog 当前已固定为：
+  - `16` 套配色：`5` 套 universal + `6` 套 mood + `5` 套 industry
+  - `6` 套字体：Noto Sans / 思源黑体 / 思源宋体 / 阿里巴巴普惠体 / OPPO Sans / HarmonyOS Sans
+- 浏览器 smoke test 已确认：
+  - `data-color-role` 标记节点在点击 preset 后立即改变颜色
+  - 右侧 inspector 显示中文字段名，且文本元素存在原生颜色选择器和字号 slider
+- 2026-04-01 晚些时候又补了一轮 preset UI 收口：
+  - 配色按钮不再显示文字，只显示 3 条颜色条；名称仅保留在 `title` 和 `aria-label`
+  - 字体按钮在当前侧栏宽度下改成 2 列网格，并通过 `overflow: hidden + text-overflow: ellipsis` 消除明显溢出
+- 2026-04-01 已同步更新 Executor 角色定义文档：
+  - `roles/Executor_General.md`
+  - `roles/Executor_Consultant.md`
+  - `roles/Executor_Consultant_Top.md`
+  三者现都包含 `SVG 语义标记协议（编辑器预设系统）` 章节，明确约束 AI 生成 SVG 时补齐 `data-color-role` / `data-font-role`
+  - 这意味着后续 Step 4/5 可以把编辑器侧的 preset 替换逻辑视为“有上游契约”的正式路径，而不仅是对无标记 SVG 的 fallback
+
+### Editor UX 修复批次（2026-04-01）
+- 直接编辑 SVG 路径里，`saveJsonBtn`、`watchFileBtn`、AI 协作区和资产导入区继续保留 DOM/逻辑，但 UI 默认隐藏；这比删代码更稳，因为未来若要恢复 slide_state/AI handoff 工作流，只需要重新露出面板。
+- `<details>` 的默认折叠不能只依赖静态 HTML。浏览器在同 URL 热更新或状态恢复时可能保留上一次展开状态，所以 `editor/src/app.ts` 启动阶段额外强制把 `.sidebar-section` 全部收起，才能稳定满足“默认折叠配色/字体”。
+- 文本框溢出的根因不只在拖拽边界，还在 `svg_to_state.ts` 过去把导入的 `text.width` 固定成 `1200`。这会让很多单行标题一开始就拥有接近整页的交互框，导致选框和拖拽边界都失真。
+  - 本轮改为按 `font-size`、最长文本行长度、`text-anchor` 和可用画布宽度估算初始 `width`
+  - 浏览器回归里，`slide_01_cover_text_5` 的宽度从固定 `1200` 收敛到约 `426`
+- 文本拖拽和 resize 的可靠性现在依赖三条同时成立：
+  - move 路径按元素交互框做 `clamp`，而不是只改裸 `x/y`
+  - text resize 允许上下手柄，并把纵向变化写回 `maxHeight`
+  - 历史栈对 text 额外记录 `maxHeight`，否则纵向 resize 无法 undo/redo
+- 浏览器 smoke 结果：
+  - `saveJsonBtn` 不可见；`watchFileBtn / exportAiTaskBtn / applyAiPatchBtn / importTemplateBtn / importChartBtn` 虽仍在 DOM 中，但计算样式不可见
+  - 右侧属性卡、配色折叠项、字体折叠项在 `scrollTop=0` 时均位于可视区内
+  - 通过属性面板修改 `prop-x` 后，`undoBtn / redoBtn` 可正确往返 `100 ↔ 140`
+  - 文本拖拽后 `x/y` 同时变化；向右下拖拽时 `x + width` 被限制在 `1280` 内，向左上拖拽时文本顶部不会越过画布
+
+### 导出与字体预设补丁（2026-04-01）
+- 当前导出链路已经具备“从 live DOM 克隆 SVG、剥离 overlay、直接下载”的稳定能力，因此“保存模板”不需要单独实现模板抽象，只要复用 SVG 导出并改文件名即可。
+- PNG 导出的关键不是 `canvas.drawImage()`，而是先把 SVG 中的 `<image href>` 尽量变成浏览器可栅格化的来源：
+  - 同源或可访问资源：`fetch -> blob -> data URL`
+  - 失败资源：退回绝对 URL，继续尝试渲染
+  - 最终仍失败：明确提示用户可能是跨域 / 外链图片问题，而不是让整个导出 silently fail
+- 这条路径是 best-effort，而不是完全无条件成功：
+  - 若 SVG 里引用第三方站点图片且该资源没有 CORS，浏览器仍可能拒绝 rasterize
+  - 当前实现选择“导出主流程不崩 + 用户知道为什么缺图”，这是对纯前端编辑器最稳的边界
+- 字体预设已从旧的“系统字体 + 商业字体混搭”切到 6 套免费商用字体族：
+  - `Noto Sans`
+  - `思源黑体`
+  - `思源宋体`
+  - `阿里巴巴普惠体`
+  - `OPPO Sans`
+  - `HarmonyOS Sans`
+- 字体面板继续只显示 `scheme.name`，避免给普通用户额外术语负担；真正的字体族映射仍由 `title/body/caption/label` 四个角色消费。
+- 已知边界：
+  - 若运行环境未安装这些字体，浏览器仍会回退到 generic fallback，视觉差异度会下降
+  - 因此“6 套方案逻辑上不同”已满足，但“每台机器都明显不同”仍取决于本机字体可用性
+
+### 文本 resize 语义修复（2026-04-01）
+- 之前文本 resize 的核心问题是把“改文本框宽度”和“缩放文字”混在了一套规则里：
+  - `e / w` 侧边手柄本应只改变 line-wrap 宽度，但旧实现会同时按 `scaleX` 放大 `fontSize / lineHeight`
+  - live preview 只同步现有节点属性，不重建断行结构，导致拖动中看不到真实 reflow
+- 本轮把文本 resize 语义收敛成两类：
+  - 侧边手柄：只更新 `width` 与锚点 `x`
+  - 四角手柄：同时更新 `width / x / y / fontSize / lineHeight / maxHeight`
+- `editor/src/text_resize.ts` 现在承载两块最小公共逻辑：
+  - 文本元素专属 handle 集合
+  - 文本 resize 纯语义与 live SVG text 节点重排
+- live preview 不再只改 `x/y/font-size`，而是复用同一套 `layoutText()` 结果去重建 `<text>/<tspan>`，因此 pointermove 阶段就能看到按新宽度的断行结果。
+- 这轮没有改 `getPatchKeysForElement(text)`、history entry 结构或 `state_to_svg.ts` 的正式导出语义，因此 undo/redo 与 patch diff 仍沿用现有链路。
+
+### 海报画幅入口收敛（2026-04-01）
+- 顶部这组 `1:1 / 4:5 / 9:16` 控件不再按“单页即可”显示，而是明确按“单页且当前画布属于海报预设”显示。
+- 当前产品化判断被收敛为最小明确集：
+  - `1280x720` 视为 PPT 16:9
+  - `1024x768` 视为 PPT 4:3
+  - `1080x1080` / `1080x1350` / `1080x1920` 视为海报画幅入口对应的 `square / poster / story`
+- `supportsCanvasPresetEditing()` 仍然只表达“当前页面元素是否允许实时缩放切换”，不再兼任“是否显示入口”的职责；这样入口显隐和按钮可用态分层更清楚。
+- 这轮没有改动 `resizeSlideStateCanvas()` 本身，因此比例切换后的元素缩放语义保持不变，只是把入口限制到了海报场景。
 
 ---
 

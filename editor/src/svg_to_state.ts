@@ -10,6 +10,15 @@ import type {
   Canvas, SlideState, Def, LinearGradientDef, FilterDef,
 } from './slide_state.js'
 
+export interface SvgParseOptions {
+  preserveTextNodes?: boolean
+}
+
+export interface NormalizeSvgForEditorOptions {
+  idPrefix?: string
+  sourcePath?: string
+}
+
 // ============================================================
 // 主入口
 // ============================================================
@@ -18,7 +27,40 @@ import type {
  * 解析 SVG 字符串为 Slide
  * 使用 DOMParser（浏览器）或传入的解析器（Node/Bun）
  */
-export function svgToSlide(svgString: string, slideId: string, parser?: DOMParser): Slide {
+export function normalizeSvgForEditor(
+  svgString: string,
+  options: NormalizeSvgForEditorOptions = {},
+  parser?: DOMParser,
+): string {
+  const p = parser ?? new DOMParser()
+  const doc = p.parseFromString(svgString, 'image/svg+xml')
+  const svgEl = doc.documentElement as unknown as SVGElement
+  const usedIds = new Set<string>()
+  let generatedCount = 0
+
+  for (const node of collectInteractiveSvgNodes(svgEl)) {
+    const existingId = node.getAttribute('data-element-id')?.trim() || node.getAttribute('id')?.trim() || ''
+    const fallbackId = existingId
+      || `${options.idPrefix ?? 'svg'}_${node.tagName.toLowerCase()}_${++generatedCount}`
+    const stableId = createUniqueEditorId(existingId || fallbackId, usedIds)
+    node.setAttribute('data-element-id', stableId)
+
+    if (node.tagName.toLowerCase() === 'image') {
+      const href = node.getAttribute('href')
+        || node.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
+      if (href) node.setAttribute('href', normalizeImageHref(href, options.sourcePath))
+    }
+  }
+
+  return svgEl.outerHTML
+}
+
+export function svgToSlide(
+  svgString: string,
+  slideId: string,
+  parser?: DOMParser,
+  options: SvgParseOptions = {},
+): Slide {
   const p = parser ?? new DOMParser()
   const doc = p.parseFromString(svgString, 'image/svg+xml')
   const svgEl = doc.documentElement
@@ -43,7 +85,7 @@ export function svgToSlide(svgString: string, slideId: string, parser?: DOMParse
   }
 
   // 合并相邻的多行 <text>（ppt-master 用多个 <text> 模拟多行文本）
-  const merged = mergeAdjacentTexts(elements)
+  const merged = mergeAdjacentTexts(elements, options)
 
   return {
     id: slideId,
@@ -59,6 +101,7 @@ export function svgsToState(
   svgStrings: string[],
   slideIds?: string[],
   parser?: DOMParser,
+  options: SvgParseOptions = {},
 ): SlideState {
   if (svgStrings.length === 0) {
     return { canvas: { width: 1280, height: 720 }, slides: [] }
@@ -74,7 +117,7 @@ export function svgsToState(
 
   const slides = svgStrings.map((svg, i) => {
     const id = slideIds?.[i] ?? `slide_${String(i + 1).padStart(2, '0')}`
-    return svgToSlide(svg, id, p)
+    return svgToSlide(svg, id, p, options)
   })
 
   return { canvas, slides }
@@ -193,13 +236,19 @@ function parseText(el: SVGElement, genId: (prefix: string) => string): TextEleme
   // 估算文本框宽度（后续 Pretext 可以精确计算）
   const x = parseFloat(el.getAttribute('x') || '0')
   const y = parseFloat(el.getAttribute('y') || '0')
+  const textAnchor = (el.getAttribute('text-anchor') as TextElement['textAnchor']) || undefined
+  const canvasWidth = parseViewBox(
+    el.ownerSVGElement?.getAttribute('viewBox') ?? null,
+    el.ownerSVGElement ?? el,
+  ).width
+  const width = estimateTextBoxWidth(text, fontSize, x, canvasWidth, textAnchor)
 
   return {
     type: 'text',
-    id: genId('text'),
+    id: resolveElementId(el, 'text', genId),
     x,
     y,
-    width: 1200, // 默认宽度，后续可优化
+    width,
     text,
     font,
     lineHeight: Math.round(fontSize * 1.4),
@@ -207,10 +256,43 @@ function parseText(el: SVGElement, genId: (prefix: string) => string): TextEleme
     fontFamily,
     fontSize,
     fontWeight,
-    textAnchor: (el.getAttribute('text-anchor') as TextElement['textAnchor']) || undefined,
+    textAnchor,
     letterSpacing: el.hasAttribute('letter-spacing') ? parseFloat(el.getAttribute('letter-spacing')!) : undefined,
     opacity: el.hasAttribute('opacity') ? parseFloat(el.getAttribute('opacity')!) : undefined,
     fillOpacity: el.hasAttribute('fill-opacity') ? parseFloat(el.getAttribute('fill-opacity')!) : undefined,
+  }
+}
+
+function estimateTextBoxWidth(
+  text: string,
+  fontSize: number,
+  x: number,
+  canvasWidth: number,
+  textAnchor?: TextElement['textAnchor'],
+): number {
+  const lines = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+  const longestLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0)
+  const estimatedTextWidth = Math.max(fontSize * 2, longestLineLength * fontSize * 0.56 + fontSize * 1.5)
+  const availableWidth = getAvailableTextWidth(x, canvasWidth, textAnchor)
+  return Math.min(availableWidth, estimatedTextWidth)
+}
+
+function getAvailableTextWidth(
+  x: number,
+  canvasWidth: number,
+  textAnchor?: TextElement['textAnchor'],
+): number {
+  const safeCanvasWidth = Number.isFinite(canvasWidth) && canvasWidth > 0 ? canvasWidth : 1280
+  switch (textAnchor) {
+    case 'middle':
+      return Math.max(40, Math.min(x * 2, (safeCanvasWidth - x) * 2, safeCanvasWidth))
+    case 'end':
+      return Math.max(40, x)
+    default:
+      return Math.max(40, safeCanvasWidth - x)
   }
 }
 
@@ -221,7 +303,7 @@ function parseText(el: SVGElement, genId: (prefix: string) => string): TextEleme
 function parseRect(el: SVGElement, genId: (prefix: string) => string): RectElement {
   return {
     type: 'rect',
-    id: genId('rect'),
+    id: resolveElementId(el, 'rect', genId),
     x: parseFloat(el.getAttribute('x') || '0'),
     y: parseFloat(el.getAttribute('y') || '0'),
     width: parseFloat(el.getAttribute('width') || '0'),
@@ -243,7 +325,7 @@ function parseRect(el: SVGElement, genId: (prefix: string) => string): RectEleme
 function parsePath(el: SVGElement, genId: (prefix: string) => string): PathElement {
   return {
     type: 'path',
-    id: genId('path'),
+    id: resolveElementId(el, 'path', genId),
     d: el.getAttribute('d') || '',
     fill: el.getAttribute('fill') || undefined,
     stroke: el.getAttribute('stroke') || undefined,
@@ -262,7 +344,7 @@ function parsePath(el: SVGElement, genId: (prefix: string) => string): PathEleme
 function parseLine(el: SVGElement, genId: (prefix: string) => string): LineElement {
   return {
     type: 'line',
-    id: genId('line'),
+    id: resolveElementId(el, 'line', genId),
     x1: parseFloat(el.getAttribute('x1') || '0'),
     y1: parseFloat(el.getAttribute('y1') || '0'),
     x2: parseFloat(el.getAttribute('x2') || '0'),
@@ -281,7 +363,7 @@ function parseLine(el: SVGElement, genId: (prefix: string) => string): LineEleme
 function parseCircle(el: SVGElement, genId: (prefix: string) => string): CircleElement {
   return {
     type: 'circle',
-    id: genId('circle'),
+    id: resolveElementId(el, 'circle', genId),
     cx: parseFloat(el.getAttribute('cx') || '0'),
     cy: parseFloat(el.getAttribute('cy') || '0'),
     r: parseFloat(el.getAttribute('r') || '0'),
@@ -300,7 +382,7 @@ function parseCircle(el: SVGElement, genId: (prefix: string) => string): CircleE
 function parseImage(el: SVGElement, genId: (prefix: string) => string): ImageElement {
   return {
     type: 'image',
-    id: genId('image'),
+    id: resolveElementId(el, 'image', genId),
     x: parseFloat(el.getAttribute('x') || '0'),
     y: parseFloat(el.getAttribute('y') || '0'),
     width: parseFloat(el.getAttribute('width') || '0'),
@@ -324,7 +406,7 @@ function parseGroup(el: SVGElement, genId: (prefix: string) => string): GroupEle
 
   return {
     type: 'group',
-    id: genId('group'),
+    id: resolveElementId(el, 'group', genId),
     children,
     transform: el.getAttribute('transform') || undefined,
     fill: el.getAttribute('fill') || undefined,
@@ -344,7 +426,9 @@ function parseGroup(el: SVGElement, genId: (prefix: string) => string): GroupEle
  * ppt-master 的 SVG 通常用多个相邻 <text> 元素模拟多行文本
  * 如果它们 x 相同、fontFamily/fontSize 相同、y 差值接近行高，合并为一个 TextElement
  */
-function mergeAdjacentTexts(elements: Element[]): Element[] {
+function mergeAdjacentTexts(elements: Element[], options: SvgParseOptions): Element[] {
+  if (options.preserveTextNodes) return elements
+
   const result: Element[] = []
   let i = 0
 
@@ -407,4 +491,89 @@ function mergeTextGroup(group: TextElement[]): TextElement {
     // 总高度覆盖所有行
     maxHeight: (group[group.length - 1].y - first.y) + dy,
   }
+}
+
+function resolveElementId(
+  el: SVGElement,
+  prefix: string,
+  genId: (prefix: string) => string,
+): string {
+  const explicitId = el.getAttribute('data-element-id')?.trim() || el.getAttribute('id')?.trim()
+  return explicitId && explicitId.length > 0 ? explicitId : genId(prefix)
+}
+
+function createUniqueEditorId(candidate: string, usedIds: Set<string>): string {
+  const normalized = candidate.trim().replace(/\s+/g, '_')
+  if (!usedIds.has(normalized)) {
+    usedIds.add(normalized)
+    return normalized
+  }
+
+  let suffix = 2
+  let nextId = `${normalized}_${suffix}`
+  while (usedIds.has(nextId)) {
+    suffix += 1
+    nextId = `${normalized}_${suffix}`
+  }
+  usedIds.add(nextId)
+  return nextId
+}
+
+function normalizeImageHref(href: string, sourcePath?: string): string {
+  if (!sourcePath || !isRelativeHref(href)) return href
+
+  try {
+    const assetBasePath = inferSvgAssetBasePath(sourcePath)
+    const baseUrl = /^https?:\/\//i.test(assetBasePath)
+      ? new URL(assetBasePath)
+      : new URL(assetBasePath, 'https://ppt-master.local')
+    const resolved = new URL(href, baseUrl)
+    return /^https?:\/\//i.test(assetBasePath)
+      ? resolved.toString()
+      : `${resolved.pathname}${resolved.search}${resolved.hash}`
+  } catch {
+    return href
+  }
+}
+
+function inferSvgAssetBasePath(sourcePath: string): string {
+  const stripped = sourcePath.split('#')[0]?.split('?')[0] ?? sourcePath
+
+  for (const marker of ['/svg_final/', '/svg_output/']) {
+    const markerIndex = stripped.lastIndexOf(marker)
+    if (markerIndex >= 0) return stripped.slice(0, markerIndex + 1)
+  }
+
+  const slashIndex = stripped.lastIndexOf('/')
+  if (slashIndex >= 0) return stripped.slice(0, slashIndex + 1)
+  return ''
+}
+
+function isRelativeHref(href: string): boolean {
+  return href.length > 0 && !/^(?:[a-z]+:|\/|#|\/\/)/i.test(href)
+}
+
+function collectInteractiveSvgNodes(root: SVGElement): SVGElement[] {
+  const nodes: SVGElement[] = []
+
+  const visit = (element: SVGElement) => {
+    for (const child of Array.from(element.children)) {
+      const svgChild = child as SVGElement
+      if (isInteractiveSvgTag(svgChild.tagName.toLowerCase())) nodes.push(svgChild)
+      visit(svgChild)
+    }
+  }
+
+  visit(root)
+  return nodes
+}
+
+function isInteractiveSvgTag(tagName: string): boolean {
+  return tagName === 'text'
+    || tagName === 'rect'
+    || tagName === 'circle'
+    || tagName === 'line'
+    || tagName === 'path'
+    || tagName === 'image'
+    || tagName === 'g'
 }

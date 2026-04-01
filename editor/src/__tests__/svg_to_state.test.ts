@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { JSDOM } from 'jsdom'
-import { svgToSlide, svgsToState } from '../svg_to_state.js'
+import { normalizeSvgForEditor, svgToSlide, svgsToState } from '../svg_to_state.js'
 
 // JSDOM 提供 DOMParser
 const dom = new JSDOM()
@@ -37,6 +37,8 @@ describe('svgToSlide', () => {
       expect(text.fontSize).toBe(60)
       expect(text.fontWeight).toBe('bold')
       expect(text.fill).toBe('#FFFFFF')
+      expect(text.width).toBeGreaterThan(200)
+      expect(text.width).toBeLessThan(700)
     }
   })
 
@@ -68,6 +70,22 @@ describe('svgToSlide', () => {
     const texts = slide.elements.filter(e => e.type === 'text')
     // 字号不同，不应合并
     expect(texts).toHaveLength(2)
+  })
+
+  it('复用原始 SVG 的 data-element-id，并在 preserveTextNodes 模式下避免 merge', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+      <text data-element-id="cover_title" x="60" y="105" font-family="Arial, sans-serif" font-size="28" fill="#1A1A2E">第一行文本</text>
+      <text data-element-id="cover_subtitle" x="60" y="140" font-family="Arial, sans-serif" font-size="28" fill="#1A1A2E">第二行文本</text>
+    </svg>`
+
+    const slide = svgToSlide(svg, 'slide_01', parser, { preserveTextNodes: true })
+    const texts = slide.elements.filter(element => element.type === 'text')
+
+    expect(texts).toHaveLength(2)
+    if (texts[0]?.type === 'text' && texts[1]?.type === 'text') {
+      expect(texts[0].id).toBe('cover_title')
+      expect(texts[1].id).toBe('cover_subtitle')
+    }
   })
 
   it('解析 linearGradient', () => {
@@ -167,5 +185,25 @@ describe('svgsToState', () => {
     expect(state.slides).toHaveLength(2)
     expect(state.slides[0].id).toBe('cover')
     expect(state.slides[1].id).toBe('content')
+  })
+})
+
+describe('normalizeSvgForEditor', () => {
+  it('为交互元素注入 data-element-id，并按项目路径修正相对图片 href', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+      <image href="images/cover.png" x="0" y="0" width="1280" height="720" />
+      <rect id="hero_card" x="60" y="80" width="240" height="120" fill="#FFFFFF" />
+      <g><text x="80" y="140">Title</text></g>
+    </svg>`
+
+    const normalized = normalizeSvgForEditor(svg, {
+      idPrefix: 'slide_01_cover',
+      sourcePath: '/examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg',
+    }, parser)
+
+    expect(normalized).toContain('data-element-id="hero_card"')
+    expect(normalized).toMatch(/data-element-id="slide_01_cover_image_\d+"/)
+    expect(normalized).toMatch(/data-element-id="slide_01_cover_g_\d+"/)
+    expect(normalized).toContain('href="/examples/demo_project_intro_ppt169_20251211/images/cover.png"')
   })
 })
