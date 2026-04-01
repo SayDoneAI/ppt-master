@@ -1,16 +1,10 @@
+import type { ResizeHandle, SvgBounds } from './pointer_interactions.js'
 import type { TextElement } from './slide_state.js'
 import { layoutText } from './state_to_svg.js'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
-export interface ResizeBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+export type ResizeBounds = SvgBounds
 
 interface ParsedFontSpec {
   fontSize: number

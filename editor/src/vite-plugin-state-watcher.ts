@@ -5,6 +5,7 @@ import type { Plugin, ViteDevServer } from 'vite'
 import {
   LOCAL_AI_HANDOFF_DIR,
   LOCAL_AI_HANDOFF_WRITE_ENDPOINT,
+  LOCAL_PROJECT_SAVE_PAGES_ENDPOINT,
   sanitizeHandoffFileName,
 } from './local_ai_handoff.js'
 import { STATE_WATCHER_HMR_EVENT } from './state_sync_events.js'
@@ -24,6 +25,16 @@ interface WriteAiHandoffRequest {
   projectPath: string
   requestArtifact: WriteArtifactPayload
   noteArtifact: WriteArtifactPayload
+}
+
+interface SavePagePayload {
+  filename: string
+  svg: string
+}
+
+interface SavePagesRequest {
+  projectPath: string
+  pages: SavePagePayload[]
 }
 
 const DEFAULT_WATCH_DIR = '../../.cache'
@@ -47,12 +58,17 @@ export function stateWatcherPlugin(options: StateWatcherPluginOptions = {}): Plu
       if (!watchedDirPath || !watchedFilePath) return
 
       server.middlewares.use(async (req, res, next) => {
-        if (!matchesRequestPath(req, LOCAL_AI_HANDOFF_WRITE_ENDPOINT)) {
-          next()
+        if (matchesRequestPath(req, LOCAL_AI_HANDOFF_WRITE_ENDPOINT)) {
+          await handleLocalAiHandoffWrite(req, res)
           return
         }
 
-        await handleLocalAiHandoffWrite(req, res)
+        if (matchesRequestPath(req, LOCAL_PROJECT_SAVE_PAGES_ENDPOINT)) {
+          await handleSavePages(req, res)
+          return
+        }
+
+        next()
       })
 
       server.watcher.add(watchedDirPath)
@@ -127,6 +143,39 @@ async function handleLocalAiHandoffWrite(req: IncomingMessage, res: ServerRespon
   }
 }
 
+async function handleSavePages(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (req.method !== 'POST') {
+    respondJson(res, 405, { error: '仅支持 POST' })
+    return
+  }
+
+  try {
+    const payload = ensureSavePagesRequest(await readJsonBody(req))
+    const rawProjectPath = payload.projectPath.trim()
+    const projectPath = isAbsolute(rawProjectPath)
+      ? rawProjectPath
+      : resolve(process.cwd(), rawProjectPath)
+    const targetDir = resolve(projectPath, 'design/pages')
+
+    await mkdir(targetDir, { recursive: true })
+    await Promise.all(payload.pages.map(async page => {
+      const fileName = sanitizeSavedPageFileName(page.filename)
+      const targetPath = resolve(targetDir, fileName)
+      await writeFile(targetPath, page.svg, 'utf8')
+    }))
+
+    respondJson(res, 200, {
+      ok: true,
+      savedCount: payload.pages.length,
+      dir: targetDir,
+    })
+  } catch (error) {
+    respondJson(res, 400, {
+      error: (error as Error).message,
+    })
+  }
+}
+
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Uint8Array[] = []
   for await (const chunk of req) {
@@ -158,6 +207,26 @@ function ensureWriteAiHandoffRequest(value: unknown): WriteAiHandoffRequest {
   }
 }
 
+function ensureSavePagesRequest(value: unknown): SavePagesRequest {
+  if (!isRecord(value)) {
+    throw new Error('请求体必须是 JSON 对象')
+  }
+
+  const { projectPath, pages } = value
+  if (typeof projectPath !== 'string' || !projectPath.trim()) {
+    throw new Error('缺少 projectPath')
+  }
+
+  if (!Array.isArray(pages) || pages.length === 0) {
+    throw new Error('pages 必须是非空数组')
+  }
+
+  return {
+    projectPath,
+    pages: pages.map((page, index) => ensureSavePagePayload(page, `pages[${index}]`)),
+  }
+}
+
 function ensureWriteArtifactPayload(value: unknown, fieldName: string): WriteArtifactPayload {
   if (!isRecord(value)) {
     throw new Error(`${fieldName} 必须是对象`)
@@ -176,6 +245,36 @@ function ensureWriteArtifactPayload(value: unknown, fieldName: string): WriteArt
     mimeType: typeof value.mimeType === 'string' ? value.mimeType : undefined,
     content: value.content,
   }
+}
+
+function ensureSavePagePayload(value: unknown, fieldName: string): SavePagePayload {
+  if (!isRecord(value)) {
+    throw new Error(`${fieldName} 必须是对象`)
+  }
+
+  if (typeof value.filename !== 'string' || !value.filename.trim()) {
+    throw new Error(`${fieldName}.filename 缺失`)
+  }
+
+  if (typeof value.svg !== 'string' || !value.svg.trim()) {
+    throw new Error(`${fieldName}.svg 缺失`)
+  }
+
+  return {
+    filename: value.filename,
+    svg: value.svg,
+  }
+}
+
+function sanitizeSavedPageFileName(fileName: string): string {
+  const sanitized = sanitizeHandoffFileName(fileName).trim()
+  if (!sanitized) {
+    throw new Error('pages.filename 不能为空')
+  }
+
+  return sanitized.toLowerCase().endsWith('.svg')
+    ? sanitized
+    : `${sanitized}.svg`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,15 +1,10 @@
 import * as pretext from '@chenglou/pretext'
 import type {
   AiCommand,
-  CircleElement,
   DesignPatch,
   Element as SlideElement,
   GroupElement,
-  ImageElement,
-  LineElement,
   PatchOperation,
-  PathElement,
-  RectElement,
   Slide,
   SlideState,
   TextElement,
@@ -43,9 +38,11 @@ import {
   createAppendSlidesPatch,
   ensureCompatibleCanvas,
 } from './slide_import.js'
+import { createProjectSvgArtifacts } from './project_pipeline.js'
 import {
   buildProjectAiHandoffRelativePath,
   LOCAL_AI_HANDOFF_WRITE_ENDPOINT,
+  LOCAL_PROJECT_SAVE_PAGES_ENDPOINT,
 } from './local_ai_handoff.js'
 import type { DownloadArtifact } from './state_io.js'
 import {
@@ -58,47 +55,72 @@ import {
   readSvgFiles,
 } from './state_io.js'
 import { STATE_WATCHER_HMR_EVENT } from './state_sync_events.js'
-import { initPretext, layoutText, slideToSvg } from './state_to_svg.js'
+import { initPretext, slideToSvg } from './state_to_svg.js'
+import { syncCurrentSlideFromLiveSvg } from './svg_editor.js'
 import { normalizeSvgForEditor, svgsToState } from './svg_to_state.js'
-import { COLOR_SCHEMES, type ColorScheme } from './presets/colors.js'
-import { FONT_SCHEMES, type FontScheme } from './presets/fonts.js'
+import { COLOR_SCHEMES } from './presets/colors.js'
+import { FONT_SCHEMES } from './presets/fonts.js'
+import {
+  DEFAULT_COLOR_PICKER_VALUE,
+  applyColorPreset,
+  applyFontPreset,
+  assignTextFontSpec,
+  cloneSerializableValue,
+  createPropertyMutation,
+  normalizeFontWeightValue,
+  normalizeHexColor,
+  parseFontSpec,
+  toMutationList,
+  type ApplyColorPresetContext,
+  type ApplyFontPresetContext,
+  type EditableElement,
+  type PropertyMutation,
+} from './preset_engine.js'
+import {
+  applyMoveFromSession,
+  applyResizeFromSession,
+  clientPointToViewBox,
+  expandBounds,
+  getElementInteractionBounds,
+  getResizeCursor,
+  handleResizeHandlePointerDown,
+  stopOverlayHandleClick,
+  syncCanvasElementCursors,
+  syncInspectorPreview,
+  syncLiveElementPreview,
+  type InspectorControl,
+  type PointerInteractionSession,
+  type ResizeHandle,
+  type SupportedEditableElement,
+  type SvgBounds,
+  type TextNodeSnapshot,
+  type TransformableElement,
+} from './pointer_interactions.js'
 import {
   ALL_RESIZE_HANDLES,
-  applyTextResizeSemantics,
   getResizeHandlesForElementType,
   syncTextSvgNodes,
-  type ResizeHandle,
 } from './text_resize.js'
-
-type EditableElement =
-  | TextElement
-  | RectElement
-  | PathElement
-  | ImageElement
-  | LineElement
-  | CircleElement
-  | GroupElement
-
-type SupportedEditableElement =
-  | TextElement
-  | RectElement
-  | PathElement
-  | ImageElement
-  | LineElement
-  | CircleElement
-
-type TransformableElement =
-  | TextElement
-  | RectElement
-  | ImageElement
-  | LineElement
-  | CircleElement
+import {
+  enterTextEditing,
+  exitTextEditing,
+  type ActiveTextEditor,
+  type TextEditingContext,
+} from './text_editing.js'
 
 type EditorViewMode = 'workspace' | 'preview'
 
 type InspectorInputType = 'number' | 'text' | 'textarea' | 'color' | 'range' | 'select'
-type ColorRole = 'primary' | 'secondary' | 'accent' | 'text-dark' | 'text-light' | 'text-muted' | 'background' | 'background-alt'
-type FontRole = 'title' | 'body' | 'caption' | 'label'
+
+interface ProjectPageSavePayload {
+  filename: string
+  svg: string
+}
+
+interface SavePagesResult {
+  savedCount: number
+  dir: string
+}
 
 interface InspectorFieldOption {
   value: string
@@ -117,75 +139,6 @@ interface InspectorField {
   options?: InspectorFieldOption[]
 }
 
-interface SvgBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-interface HiddenCanvasNode {
-  node: SVGGraphicsElement
-  opacity: string | null
-}
-
-interface ActiveTextEditor {
-  elementId: string
-  foreignObject: SVGForeignObjectElement
-  wrapper: HTMLDivElement
-  textarea: HTMLTextAreaElement
-  status: HTMLDivElement
-  hiddenNodes: HiddenCanvasNode[]
-  bounds: SvgBounds
-  initialText: string
-}
-
-interface ParsedFontSpec {
-  fontSize: number
-  fontFamily: string
-  fontWeight?: string
-  fontStyle?: string
-}
-
-interface PropertyMutation {
-  property: string
-  oldValue: unknown
-  newValue: unknown
-}
-
-interface ColorRoleAssignment {
-  node: SVGElement
-  role: ColorRole
-  targets: Array<'fill' | 'stroke'>
-}
-
-type InspectorControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-
-interface SvgPoint {
-  x: number
-  y: number
-}
-
-interface TextNodeSnapshot {
-  node: Element
-  x: number | null
-  y: number | null
-}
-
-interface PointerInteractionSession {
-  pointerId: number
-  kind: 'move' | 'resize'
-  elementId: string
-  handle?: ResizeHandle
-  startClientX: number
-  startClientY: number
-  startPoint: SvgPoint
-  initialBounds: SvgBounds
-  initialElement: TransformableElement
-  textNodeSnapshots: TextNodeSnapshot[]
-  started: boolean
-}
-
 interface StateWatcherPayload {
   filePath?: string
   urlPath?: string
@@ -201,29 +154,14 @@ initPretext(pretext)
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const HANDLE_SIZE = 10
 const OVERLAY_PADDING = 4
-const TEXT_EDITOR_MIN_WIDTH = 120
-const TEXT_EDITOR_MIN_HEIGHT = 44
-const TEXT_EDITOR_STATUS_HEIGHT = 24
-const TEXT_EDITOR_HEIGHT_PADDING = 12
 const DRAG_THRESHOLD_PX = 3
 const MIN_RESIZE_SIZE = 12
 const MIN_TEXT_WIDTH = 40
 const MIN_CIRCLE_DIAMETER = 12
 const CANVAS_STAGE_MAX_WIDTH = 1120
-const AI_HANDOFF_IDLE_MESSAGE = '先连接项目，AI 改完后这里会自动刷新。'
+const AI_HANDOFF_IDLE_MESSAGE = '默认主路径是 SVG 页面；如需自动刷新，请绑定项目里的兼容 state（如 slide_state.json）。'
 const ASSET_LIBRARY_IDLE_MESSAGE = '模板导入和 Patch 回流都放在这里，平时不用展开。'
 const DEFAULT_DEMO_SVG_PATH = '/examples/demo_project_intro_ppt169_20251211/svg_final/slide_01_cover.svg'
-const DEFAULT_COLOR_PICKER_VALUE = '#000000'
-const COLOR_ROLE_KEYS: Record<ColorRole, keyof ColorScheme> = {
-  primary: 'primary',
-  secondary: 'secondary',
-  accent: 'accent',
-  'text-dark': 'textDark',
-  'text-light': 'textLight',
-  'text-muted': 'textMuted',
-  background: 'background',
-  'background-alt': 'backgroundAlt',
-}
 const FONT_WEIGHT_OPTIONS: InspectorFieldOption[] = [
   { value: '400', label: '正常 (400)' },
   { value: '500', label: '中等 (500)' },
@@ -283,7 +221,7 @@ const collapsibleInspectorSections = Array.from(
 
 let state = createDemoState()
 let rawSvgStrings: string[] = []
-let stateSourceLabel = '当前数据：加载默认 Demo 中…'
+let stateSourceLabel = '当前数据：加载默认 SVG Demo 中…'
 let currentSlideIndex = 0
 let editorViewMode: EditorViewMode = shouldDefaultToPreview(state) ? 'preview' : 'workspace'
 let hoveredElementId: string | null = null
@@ -307,6 +245,118 @@ let assetLibraryStatusMessage = ASSET_LIBRARY_IDLE_MESSAGE
 let assetLibraryStatusTone: 'default' | 'error' = 'default'
 let activeColorSchemeId: string | null = null
 let activeFontSchemeId: string | null = null
+
+const pointerInteractionBoundsContext = {
+  measureElementBounds,
+  minTextWidth: MIN_TEXT_WIDTH,
+}
+
+const canvasElementCursorsContext = {
+  getCanvasElementNodes,
+  get editingTextId() {
+    return editingTextId
+  },
+  getSelectedElement,
+  isTransformableElement,
+}
+
+const resizeHandlePointerDownContext = {
+  get editingTextId() {
+    return editingTextId
+  },
+  getSelectedElement,
+  isTransformableElement,
+  setInteractionHint(value: string | null) {
+    interactionHint = value
+  },
+  renderInspector,
+  getCanvasSvg,
+  measureElementBounds,
+  minTextWidth: MIN_TEXT_WIDTH,
+  getElementInteractionBounds(element: EditableElement, svg: SVGSVGElement) {
+    return getElementInteractionBounds(element, svg, pointerInteractionBoundsContext)
+  },
+  cloneTransformableElement<T extends TransformableElement>(element: T): T {
+    return cloneTransformableElement(element)
+  },
+  captureTextNodeSnapshots,
+  setPointerSession(session: PointerInteractionSession | null) {
+    pointerSession = session
+  },
+}
+
+const resizeApplicationContext = {
+  get canvas() {
+    return state.canvas
+  },
+  clamp,
+  minTextWidth: MIN_TEXT_WIDTH,
+  minResizeSize: MIN_RESIZE_SIZE,
+  minCircleDiameter: MIN_CIRCLE_DIAMETER,
+}
+
+const liveElementPreviewContext = {
+  getCanvasElementNodes,
+  document,
+}
+
+const inspectorPreviewContext = {
+  selectionSummary,
+  elementFields,
+  buildSelectionSummary,
+  getInspectorFields,
+  getFieldValue,
+  syncInspectorControlValue(control: InspectorControl, field: InspectorField, value: string) {
+    syncInspectorControlValue(control, field, value)
+  },
+}
+
+const textEditingContext: TextEditingContext = {
+  document,
+  elementFields,
+  svgNamespace: SVG_NS,
+  get editingTextId() {
+    return editingTextId
+  },
+  get activeTextEditor() {
+    return activeTextEditor
+  },
+  get selectedElementId() {
+    return selectedElementId
+  },
+  getCanvasSvg,
+  getCanvasElementNodes,
+  measureElementBounds,
+  findElementById,
+  getCurrentSlide,
+  syncSlideElementIntoSvg,
+  createPropertyPatch,
+  commitPatchOperations,
+  commitCurrentSlideFromLiveCanvasSvg,
+  renderCanvas,
+  renderThumbnails,
+  renderInspector,
+  refreshCanvasOverlays,
+  setEditingTextId(value: string | null) {
+    editingTextId = value
+  },
+  setActiveTextEditor(editor: ActiveTextEditor | null) {
+    activeTextEditor = editor
+  },
+  setHoveredElementId(value: string | null) {
+    hoveredElementId = value
+  },
+  requestAnimationFrame(callback: FrameRequestCallback) {
+    return window.requestAnimationFrame(callback)
+  },
+  getCurrentSlideIndex() {
+    return currentSlideIndex
+  },
+}
+
+function handleOverlayResizeHandlePointerDown(event: PointerEvent): void {
+  handleResizeHandlePointerDown(event, resizeHandlePointerDownContext)
+}
 
 bindCanvasBlankInteractions()
 bindInspectorInteractions()
@@ -346,13 +396,13 @@ window.addEventListener('keydown', event => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
     if (isFormField(event.target)) return
     event.preventDefault()
-    downloadCurrentCanvasSvg()
+    void handleSaveShortcut()
     return
   }
 
   if (event.key === 'Escape') {
     if (editingTextId) {
-      exitTextEditing()
+      exitTextEditing(textEditingContext)
       event.preventDefault()
       return
     }
@@ -409,7 +459,7 @@ function render(): void {
   nextButton.disabled = currentSlideIndex === state.slides.length - 1
   syncHistoryButtons()
   stateSourceBadge.textContent = stateSourceLabel
-  document.title = `PPT Master Editor · ${slide.id}`
+  document.title = `Design Editor · ${slide.id}`
 }
 
 function collapseInspectorSectionsByDefault(): void {
@@ -419,7 +469,7 @@ function collapseInspectorSectionsByDefault(): void {
 }
 
 function goToSlide(index: number): void {
-  if (editingTextId) exitTextEditing({ shouldRender: false })
+  if (editingTextId) exitTextEditing(textEditingContext, { shouldRender: false })
   const nextIndex = clamp(index, 0, state.slides.length - 1)
   if (nextIndex === currentSlideIndex) return
   currentSlideIndex = nextIndex
@@ -560,7 +610,7 @@ function renderColorPresets(): void {
     button.addEventListener('click', () => {
       const presetId = button.dataset.colorPresetId
       const preset = COLOR_SCHEMES.find(candidate => candidate.id === presetId)
-      if (preset) applyColorPreset(preset)
+      if (preset) applyColorPreset(preset, createColorPresetContext())
     })
   }
 }
@@ -584,8 +634,56 @@ function renderFontPresets(): void {
     button.addEventListener('click', () => {
       const presetId = button.dataset.fontPresetId
       const preset = FONT_SCHEMES.find(candidate => candidate.id === presetId)
-      if (preset) applyFontPreset(preset)
+      if (preset) applyFontPreset(preset, createFontPresetContext())
     })
+  }
+}
+
+function createColorPresetContext(): ApplyColorPresetContext {
+  return {
+    editingTextId,
+    exitTextEditing: (options?: { shouldRender?: boolean }) => {
+      exitTextEditing(textEditingContext, options)
+    },
+    state,
+    rawSvgStrings,
+    findElementById,
+    createPropertyPatch,
+    commitPatchOperations,
+    setActiveColorSchemeId: (id: string) => {
+      activeColorSchemeId = id
+    },
+    setInteractionHint: (value: string) => {
+      interactionHint = value
+    },
+    setStateSourceLabel: (value: string) => {
+      stateSourceLabel = value
+    },
+    render,
+  }
+}
+
+function createFontPresetContext(): ApplyFontPresetContext {
+  return {
+    editingTextId,
+    exitTextEditing: (options?: { shouldRender?: boolean }) => {
+      exitTextEditing(textEditingContext, options)
+    },
+    state,
+    rawSvgStrings,
+    findElementById,
+    createPropertyPatch,
+    commitPatchOperations,
+    setActiveFontSchemeId: (id: string) => {
+      activeFontSchemeId = id
+    },
+    setInteractionHint: (value: string) => {
+      interactionHint = value
+    },
+    setStateSourceLabel: (value: string) => {
+      stateSourceLabel = value
+    },
+    render,
   }
 }
 
@@ -642,14 +740,14 @@ function renderAiHandoffPanel(): void {
   const projectPathHint = inferProjectPathHint(watchedStatePath)
   const projectLabel = projectPathHint ? projectPathHint : '未绑定本地项目'
   const refreshLabel = projectPathHint
-    ? '刷新 · AI 改完 state 后自动刷新'
-    : '刷新 · 未绑定项目，暂不自动刷新'
+    ? '刷新 · 已绑定项目，当前通过 compat state 自动刷新'
+    : '刷新 · SVG 页面优先；compat state 自动刷新未启用'
 
   if (isSingleSlide) {
     aiTargetSummary.innerHTML = `
       <div class="selection-summary__meta">
         <span>${escapeHtml(selected ? '当前选中内容' : '当前整张海报')}</span>
-        <span>${escapeHtml(projectPathHint ? '已连接项目，改完会自动刷新' : '先连接项目，再让 AI 直接回写')}</span>
+        <span>${escapeHtml(projectPathHint ? '已绑定项目；SVG 预览保持主路径，compat state 变更会自动刷新' : '先绑定项目；默认仍以 SVG 页面预览，必要时再接 compat state 自动刷新')}</span>
       </div>
     `
   } else {
@@ -665,8 +763,8 @@ function renderAiHandoffPanel(): void {
   }
 
   watchFileButton.textContent = projectPathHint
-    ? (isSingleSlide ? '更换项目' : '更换绑定项目')
-    : (isSingleSlide ? '连接项目' : '绑定项目预览')
+    ? '更换项目绑定'
+    : '绑定项目预览'
   exportAiTaskButton.textContent = projectPathHint
     ? (isSingleSlide ? '应用修改' : '发送给 AI')
     : (isSingleSlide ? '导出请求' : '导出 AI 请求')
@@ -693,508 +791,12 @@ function renderAssetImportPanel(): void {
         <span>用途 · 复用已有资产</span>
         <span>${escapeHtml(`插入位置 · 第 ${currentSlideIndex + 1} 页后`)}</span>
         <span>${escapeHtml(`当前画布 · ${state.canvas.width} × ${state.canvas.height}`)}</span>
-        <span>格式 · SVG / slide_state JSON</span>
+        <span>格式 · SVG 优先 / compat state JSON</span>
       </div>
     `
   }
   assetLibraryStatus.textContent = assetLibraryStatusMessage
   assetLibraryStatus.dataset.tone = assetLibraryStatusTone
-}
-
-function applyColorPreset(scheme: ColorScheme): void {
-  if (editingTextId) exitTextEditing({ shouldRender: false })
-
-  const operations: PatchOperation[] = []
-  let appliedNodeCount = 0
-
-  state.slides.forEach((slide, index) => {
-    const doc = new DOMParser().parseFromString(getSlideSourceMarkup(slide, index), 'image/svg+xml')
-    const svg = doc.documentElement as unknown as SVGSVGElement
-    if (svg.tagName.toLowerCase() !== 'svg') return
-
-    const assignments = collectColorRoleAssignments(svg)
-    assignments.forEach(assignment => {
-      const color = scheme[COLOR_ROLE_KEYS[assignment.role]]
-      const result = applyColorToNode(assignment.node, color, assignment.targets)
-      if (!result.fill && !result.stroke) return
-
-      appliedNodeCount += 1
-      const elementId = assignment.node.getAttribute('data-element-id')
-      if (!elementId) return
-
-      const element = findElementById(slide.elements, elementId)
-      if (!element) return
-
-      appendPropertyMutations(
-        element.id,
-        applyColorToElementState(element, {
-          fill: result.fill ? color : undefined,
-          stroke: result.stroke ? color : undefined,
-        }),
-        operations,
-      )
-    })
-
-    rawSvgStrings[index] = svg.outerHTML
-  })
-
-  activeColorSchemeId = scheme.id
-  interactionHint = appliedNodeCount > 0
-    ? `已应用配色方案：${scheme.name}`
-    : '当前 SVG 里还没找到可套用的颜色角色。'
-  stateSourceLabel = `当前数据：已应用配色 · ${scheme.name}`
-  if (operations.length > 0) {
-    commitPatchOperations(operations, 'human', `应用配色 ${scheme.name}`)
-  }
-  render()
-}
-
-function applyFontPreset(scheme: FontScheme): void {
-  if (editingTextId) exitTextEditing({ shouldRender: false })
-
-  const operations: PatchOperation[] = []
-  let appliedNodeCount = 0
-
-  state.slides.forEach((slide, index) => {
-    const doc = new DOMParser().parseFromString(getSlideSourceMarkup(slide, index), 'image/svg+xml')
-    const svg = doc.documentElement as unknown as SVGSVGElement
-    if (svg.tagName.toLowerCase() !== 'svg') return
-
-    const assignments = collectFontRoleAssignments(svg)
-    assignments.forEach(assignment => {
-      const fontFamily = getFontFamilyForRole(scheme, assignment.role)
-      assignment.node.setAttribute('font-family', fontFamily)
-      appliedNodeCount += 1
-
-      const elementId = assignment.node.getAttribute('data-element-id')
-      if (!elementId) return
-
-      const element = findElementById(slide.elements, elementId)
-      if (!element) return
-
-      appendPropertyMutations(
-        element.id,
-        applyFontToElementState(element, fontFamily),
-        operations,
-      )
-    })
-
-    rawSvgStrings[index] = svg.outerHTML
-  })
-
-  activeFontSchemeId = scheme.id
-  interactionHint = appliedNodeCount > 0
-    ? `已应用字体风格：${scheme.name}`
-    : '当前 SVG 里还没找到可套用的字体角色。'
-  stateSourceLabel = `当前数据：已应用字体 · ${scheme.name}`
-  if (operations.length > 0) {
-    commitPatchOperations(operations, 'human', `应用字体 ${scheme.name}`)
-  }
-  render()
-}
-
-function getSlideSourceMarkup(slide: Slide, index: number): string {
-  return rawSvgStrings[index]?.trim() || slideToSvg(slide, state.canvas)
-}
-
-function collectColorRoleAssignments(svg: SVGSVGElement): ColorRoleAssignment[] {
-  const explicit = normalizeColorRoleAssignments(
-    Array.from(svg.querySelectorAll<SVGElement>('[data-color-role], [data-color-role-fill], [data-color-role-stroke]')).flatMap(node => {
-      const assignments: ColorRoleAssignment[] = []
-      const sharedRole = normalizeColorRole(node.getAttribute('data-color-role'))
-      const fillRole = normalizeColorRole(node.getAttribute('data-color-role-fill'))
-      const strokeRole = normalizeColorRole(node.getAttribute('data-color-role-stroke'))
-
-      if (sharedRole) {
-        assignments.push({
-          node,
-          role: sharedRole,
-          targets: determineColorTargets(node),
-        })
-      }
-
-      if (fillRole) {
-        assignments.push({
-          node,
-          role: fillRole,
-          targets: ['fill'],
-        })
-      }
-
-      if (strokeRole) {
-        assignments.push({
-          node,
-          role: strokeRole,
-          targets: ['stroke'],
-        })
-      }
-
-      return assignments
-    }),
-  )
-
-  if (explicit.length > 0) return explicit
-
-  const inferred = normalizeColorRoleAssignments(inferColorRoleAssignments(svg))
-  persistInferredColorRoles(inferred)
-  return inferred
-}
-
-function collectFontRoleAssignments(svg: SVGSVGElement): Array<{ node: SVGElement; role: FontRole }> {
-  const explicit = Array.from(svg.querySelectorAll<SVGElement>('[data-font-role]')).flatMap(node => {
-    const role = normalizeFontRole(node.getAttribute('data-font-role'))
-    return role ? [{ node, role }] : []
-  })
-  if (explicit.length > 0) return explicit
-
-  return Array.from(svg.querySelectorAll<SVGElement>('[data-element-id]'))
-    .filter(node => {
-      const tag = node.tagName.toLowerCase()
-      return tag === 'text' || tag === 'g'
-    })
-    .map(node => ({ node, role: inferFontRole(node) }))
-}
-
-function normalizeColorRole(value: string | null): ColorRole | null {
-  if (!value) return null
-  return Object.prototype.hasOwnProperty.call(COLOR_ROLE_KEYS, value) ? value as ColorRole : null
-}
-
-function normalizeFontRole(value: string | null): FontRole | null {
-  if (!value) return null
-  if (value === 'title' || value === 'body' || value === 'caption' || value === 'label') {
-    return value
-  }
-  return null
-}
-
-function determineColorTargets(node: SVGElement): Array<'fill' | 'stroke'> {
-  const targets: Array<'fill' | 'stroke'> = []
-  const tag = node.tagName.toLowerCase()
-  const fill = node.getAttribute('fill')
-  const stroke = node.getAttribute('stroke')
-
-  if (fill && fill !== 'none' && !isFunctionalPaint(fill)) targets.push('fill')
-  if (stroke && stroke !== 'none' && !isFunctionalPaint(stroke)) targets.push('stroke')
-
-  if (targets.length === 0) {
-    if (tag === 'line') targets.push('stroke')
-    else targets.push('fill')
-  }
-
-  return Array.from(new Set(targets))
-}
-
-function inferColorRoleAssignments(svg: SVGSVGElement): ColorRoleAssignment[] {
-  const buckets = buildColorBuckets(svg)
-  if (buckets.length === 0) return []
-
-  const roleByColor = new Map<string, ColorRole>()
-  const usedColors = new Set<string>()
-
-  const fillBuckets = [...buckets].filter(bucket => bucket.fillArea > 0).sort((left, right) => right.fillArea - left.fillArea)
-  const textBuckets = [...buckets].filter(bucket => bucket.textCount > 0)
-  const vividBuckets = [...buckets].sort((left, right) => {
-    if (right.saturation !== left.saturation) return right.saturation - left.saturation
-    return (right.fillArea + right.entries.length) - (left.fillArea + left.entries.length)
-  })
-
-  assignRoleFromBuckets(roleByColor, usedColors, fillBuckets, 'background')
-  assignRoleFromBuckets(roleByColor, usedColors, fillBuckets.filter(bucket => !usedColors.has(bucket.color)), 'background-alt')
-  assignRoleFromBuckets(roleByColor, usedColors, textBuckets.sort((left, right) => left.luminance - right.luminance), 'text-dark')
-  assignRoleFromBuckets(roleByColor, usedColors, textBuckets.filter(bucket => bucket.luminance >= 0.72).sort((left, right) => right.textCount - left.textCount), 'text-light')
-  assignRoleFromBuckets(
-    roleByColor,
-    usedColors,
-    textBuckets.filter(bucket => !usedColors.has(bucket.color)).sort((left, right) => Math.abs(left.luminance - 0.55) - Math.abs(right.luminance - 0.55)),
-    'text-muted',
-  )
-  assignRoleFromBuckets(roleByColor, usedColors, vividBuckets.filter(bucket => !usedColors.has(bucket.color)), 'primary')
-  assignRoleFromBuckets(roleByColor, usedColors, vividBuckets.filter(bucket => !usedColors.has(bucket.color)), 'secondary')
-  assignRoleFromBuckets(roleByColor, usedColors, vividBuckets.filter(bucket => !usedColors.has(bucket.color)), 'accent')
-
-  return buckets.flatMap(bucket => {
-    const role = roleByColor.get(bucket.color)
-    if (!role) return []
-    return bucket.entries.map(entry => ({
-      node: entry.node,
-      role,
-      targets: [entry.target],
-    }))
-  })
-}
-
-function normalizeColorRoleAssignments(assignments: ColorRoleAssignment[]): ColorRoleAssignment[] {
-  const merged = new Map<SVGElement, Map<ColorRole, Set<'fill' | 'stroke'>>>()
-
-  assignments.forEach(assignment => {
-    const nodeRoles = merged.get(assignment.node) ?? new Map<ColorRole, Set<'fill' | 'stroke'>>()
-    const targets = nodeRoles.get(assignment.role) ?? new Set<'fill' | 'stroke'>()
-    assignment.targets.forEach(target => targets.add(target))
-    nodeRoles.set(assignment.role, targets)
-    merged.set(assignment.node, nodeRoles)
-  })
-
-  return Array.from(merged.entries()).flatMap(([node, roles]) =>
-    Array.from(roles.entries()).map(([role, targets]) => ({
-      node,
-      role,
-      targets: Array.from(targets),
-    })),
-  )
-}
-
-function persistInferredColorRoles(assignments: ColorRoleAssignment[]): void {
-  const roleByNode = new Map<SVGElement, { fill?: ColorRole; stroke?: ColorRole }>()
-
-  assignments.forEach(assignment => {
-    const roles = roleByNode.get(assignment.node) ?? {}
-    if (assignment.targets.includes('fill')) roles.fill = assignment.role
-    if (assignment.targets.includes('stroke')) roles.stroke = assignment.role
-    roleByNode.set(assignment.node, roles)
-  })
-
-  roleByNode.forEach((roles, node) => {
-    const fillRole = roles.fill
-    const strokeRole = roles.stroke
-
-    if ((fillRole && !strokeRole) || (strokeRole && !fillRole) || (fillRole && strokeRole && fillRole === strokeRole)) {
-      node.setAttribute('data-color-role', fillRole ?? strokeRole ?? '')
-      node.removeAttribute('data-color-role-fill')
-      node.removeAttribute('data-color-role-stroke')
-      return
-    }
-
-    node.removeAttribute('data-color-role')
-    if (fillRole) node.setAttribute('data-color-role-fill', fillRole)
-    else node.removeAttribute('data-color-role-fill')
-    if (strokeRole) node.setAttribute('data-color-role-stroke', strokeRole)
-    else node.removeAttribute('data-color-role-stroke')
-  })
-}
-
-function assignRoleFromBuckets(
-  roleByColor: Map<string, ColorRole>,
-  usedColors: Set<string>,
-  buckets: Array<{ color: string }>,
-  role: ColorRole,
-): void {
-  const nextBucket = buckets.find(bucket => !usedColors.has(bucket.color))
-  if (!nextBucket) return
-  roleByColor.set(nextBucket.color, role)
-  usedColors.add(nextBucket.color)
-}
-
-function buildColorBuckets(svg: SVGSVGElement): Array<{
-  color: string
-  entries: Array<{ node: SVGElement; target: 'fill' | 'stroke'; area: number }>
-  fillArea: number
-  textCount: number
-  luminance: number
-  saturation: number
-}> {
-  const buckets = new Map<string, {
-    color: string
-    entries: Array<{ node: SVGElement; target: 'fill' | 'stroke'; area: number }>
-    fillArea: number
-    textCount: number
-    luminance: number
-    saturation: number
-  }>()
-
-  Array.from(svg.querySelectorAll<SVGElement>('[data-element-id]')).forEach(node => {
-    ;(['fill', 'stroke'] as const).forEach(target => {
-      const rawColor = node.getAttribute(target)
-      const color = normalizeHexColor(rawColor)
-      if (!color) return
-
-      const bucket = buckets.get(color) ?? {
-        color,
-        entries: [],
-        fillArea: 0,
-        textCount: 0,
-        luminance: getColorLuminance(color),
-        saturation: getColorSaturation(color),
-      }
-
-      const area = estimateNodeArea(node)
-      bucket.entries.push({ node, target, area })
-      if (target === 'fill') bucket.fillArea += area
-      if (node.tagName.toLowerCase() === 'text') bucket.textCount += 1
-      buckets.set(color, bucket)
-    })
-  })
-
-  return Array.from(buckets.values())
-}
-
-function applyColorToNode(
-  node: SVGElement,
-  color: string,
-  targets: Array<'fill' | 'stroke'>,
-): { fill: boolean; stroke: boolean } {
-  let fillChanged = false
-  let strokeChanged = false
-
-  if (targets.includes('fill')) {
-    node.setAttribute('fill', color)
-    fillChanged = true
-  }
-
-  if (targets.includes('stroke')) {
-    node.setAttribute('stroke', color)
-    strokeChanged = true
-  }
-
-  return { fill: fillChanged, stroke: strokeChanged }
-}
-
-function appendPropertyMutations(elementId: string, mutations: PropertyMutation[], operations: PatchOperation[]): void {
-  mutations.forEach(mutation => {
-    const operation = createPropertyPatch(elementId, mutation.property, mutation.oldValue, mutation.newValue)
-    if (operation) operations.push(operation)
-  })
-}
-
-function applyColorToElementState(
-  element: EditableElement,
-  next: { fill?: string; stroke?: string },
-): PropertyMutation[] {
-  const mutations: PropertyMutation[] = []
-
-  if (next.fill !== undefined) {
-    switch (element.type) {
-      case 'text':
-      case 'rect':
-      case 'path':
-      case 'circle':
-        pushMutation(mutations, createPropertyMutation(element, 'fill', next.fill))
-        break
-      case 'group':
-        pushMutation(mutations, createPropertyMutation(element, 'fill', next.fill))
-        break
-    }
-  }
-
-  if (next.stroke !== undefined) {
-    switch (element.type) {
-      case 'rect':
-      case 'path':
-      case 'line':
-      case 'circle':
-        pushMutation(mutations, createPropertyMutation(element, 'stroke', next.stroke))
-        break
-    }
-  }
-
-  return mutations
-}
-
-function applyFontToElementState(element: EditableElement, fontFamily: string): PropertyMutation[] {
-  switch (element.type) {
-    case 'text':
-      return assignTextFontFamily(element, fontFamily)
-    case 'group':
-      return toMutationList(createPropertyMutation(element, 'fontFamily', fontFamily)) ?? []
-    default:
-      return []
-  }
-}
-
-function pushMutation(target: PropertyMutation[], mutation: PropertyMutation | null): void {
-  if (mutation) target.push(mutation)
-}
-
-function getFontFamilyForRole(scheme: FontScheme, role: FontRole): string {
-  switch (role) {
-    case 'title':
-      return scheme.title
-    case 'caption':
-      return scheme.caption
-    case 'label':
-      return scheme.label
-    case 'body':
-    default:
-      return scheme.body
-  }
-}
-
-function inferFontRole(node: SVGElement): FontRole {
-  const fontSize = parseFloat(node.getAttribute('font-size') || '0')
-  const textLength = node.textContent?.trim().length ?? 0
-
-  if (fontSize >= 30) return 'title'
-  if (fontSize <= 14) return 'caption'
-  if (fontSize >= 18 && textLength <= 18) return 'label'
-  return 'body'
-}
-
-function estimateNodeArea(node: SVGElement): number {
-  const tag = node.tagName.toLowerCase()
-  if (tag === 'rect' || tag === 'image') {
-    return (parseFloat(node.getAttribute('width') || '0') || 0) * (parseFloat(node.getAttribute('height') || '0') || 0)
-  }
-
-  if (tag === 'circle') {
-    const r = parseFloat(node.getAttribute('r') || '0') || 0
-    return Math.PI * r * r
-  }
-
-  if (tag === 'line') {
-    const x1 = parseFloat(node.getAttribute('x1') || '0') || 0
-    const y1 = parseFloat(node.getAttribute('y1') || '0') || 0
-    const x2 = parseFloat(node.getAttribute('x2') || '0') || 0
-    const y2 = parseFloat(node.getAttribute('y2') || '0') || 0
-    const strokeWidth = parseFloat(node.getAttribute('stroke-width') || '1') || 1
-    return Math.hypot(x2 - x1, y2 - y1) * strokeWidth
-  }
-
-  return 1
-}
-
-function isFunctionalPaint(value: string): boolean {
-  return value.trim().startsWith('url(')
-}
-
-function normalizeHexColor(value: string | null): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  if (trimmed === '' || trimmed === 'none' || isFunctionalPaint(trimmed)) return null
-
-  const shortHex = trimmed.match(/^#([0-9a-f]{3})$/i)
-  if (shortHex) {
-    const [r, g, b] = shortHex[1].split('')
-    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase()
-  }
-
-  const fullHex = trimmed.match(/^#([0-9a-f]{6})$/i)
-  if (fullHex) return `#${fullHex[1].toUpperCase()}`
-  return null
-}
-
-function getColorLuminance(color: string): number {
-  const { r, g, b } = hexToRgb(color)
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-}
-
-function getColorSaturation(color: string): number {
-  const { r, g, b } = hexToRgb(color)
-  const max = Math.max(r, g, b) / 255
-  const min = Math.min(r, g, b) / 255
-  if (max === min) return 0
-  const lightness = (max + min) / 2
-  return lightness > 0.5
-    ? (max - min) / (2 - max - min)
-    : (max - min) / (max + min)
-}
-
-function hexToRgb(color: string): { r: number; g: number; b: number } {
-  const normalized = normalizeHexColor(color) ?? DEFAULT_COLOR_PICKER_VALUE
-  return {
-    r: parseInt(normalized.slice(1, 3), 16),
-    g: parseInt(normalized.slice(3, 5), 16),
-    b: parseInt(normalized.slice(5, 7), 16),
-  }
 }
 
 function buildSelectionSummary(element: EditableElement): string {
@@ -1364,12 +966,19 @@ function bindInspectorInteractions(): void {
       .map(mutation => createPropertyPatch(selected.id, mutation.property, mutation.oldValue, mutation.newValue))
       .filter((operation): operation is PatchOperation => Boolean(operation))
 
+    const canvasSvg = getCanvasSvg()
+    if (canvasSvg) syncSlideElementIntoSvg(selected, canvasSvg, document)
+    commitCurrentSlideFromLiveCanvasSvg()
+
     if (operations.length > 0) {
       commitPatchOperations(operations, 'human', `修改 ${selected.id}.${key}`)
     }
 
     interactionHint = null
-    syncInspectorPreview(selected)
+    const nextSelected = findElementById(getCurrentSlide().elements, selected.id)
+    if (nextSelected && isSupportedEditableElement(nextSelected)) {
+      syncInspectorPreview(nextSelected, inspectorPreviewContext)
+    }
     const slide = getCurrentSlide()
     renderCanvas(slide, currentSlideIndex)
     renderThumbnails()
@@ -1407,13 +1016,13 @@ function bindToolbarFileActions(): void {
   watchFileButton.addEventListener('click', () => {
     const defaultPath = watchedStatePath ?? ''
     const input = window.prompt(
-      '请输入项目里的 slide_state.json 路径（支持 /@fs/...）。绑定后，AI 改完文件会自动刷新这个预览。',
+      '请输入项目里的 compat state 路径（例如 /@fs/.../slide_state.json）。编辑器默认仍以 SVG 页面为主路径；这里仅用于本地自动刷新。',
       defaultPath,
     )
     const nextPath = input?.trim()
     if (!nextPath) return
     void startManualStateWatch(nextPath).catch(error => {
-      console.error(`启动文件监听失败: ${nextPath}`, error)
+      console.error(`启动 compat state 监听失败: ${nextPath}`, error)
     })
   })
 }
@@ -1431,7 +1040,7 @@ function bindPosterPreviewInteractions(): void {
       const preset = CANVAS_PRESETS.find(candidate => candidate.id === presetId)
       if (!preset || !shouldShowPosterCanvasControls(state) || !supportsCanvasPresetEditing(state)) return
 
-      if (editingTextId) exitTextEditing({ shouldRender: false })
+      if (editingTextId) exitTextEditing(textEditingContext, { shouldRender: false })
 
       const nextState = resizeSlideStateCanvas(state, preset)
       const previousState = state
@@ -1588,20 +1197,6 @@ function bindGlobalDropZone(): void {
 }
 
 async function loadInitialStateFromUrl(): Promise<void> {
-  const statePath = getStatePathFromSearch(window.location.search)
-  if (statePath) {
-    watchedStatePath = statePath
-    try {
-      await reloadStateFromRemote(statePath, `当前数据：URL ${statePath}`, statePath)
-      return
-    } catch (error) {
-      console.error(`URL 加载 slide_state 失败: ${statePath}`, error)
-      stateSourceLabel = `当前数据：内置 Demo（URL 加载失败）`
-      render()
-      return
-    }
-  }
-
   const svgPaths = getSvgPathsFromSearch(window.location.search)
   if (svgPaths.length > 0) {
     try {
@@ -1617,14 +1212,28 @@ async function loadInitialStateFromUrl(): Promise<void> {
     return
   }
 
+  const statePath = getStatePathFromSearch(window.location.search)
+  if (statePath) {
+    watchedStatePath = statePath
+    try {
+      await reloadStateFromRemote(statePath, `当前数据：兼容 state URL ${statePath}`, statePath)
+      return
+    } catch (error) {
+      console.error(`URL 加载 compat state 失败: ${statePath}`, error)
+      stateSourceLabel = '当前数据：内置 SVG Demo（compat state URL 加载失败）'
+      render()
+      return
+    }
+  }
+
   try {
     const bundle = await loadStateFromSvgUrls([DEFAULT_DEMO_SVG_PATH])
-    replaceState(bundle.state, '当前数据：默认 Demo（真实 SVG）', {
+    replaceState(bundle.state, '当前数据：默认 Demo（SVG 示例）', {
       rawSvgStrings: bundle.rawSvgStrings,
     })
   } catch (error) {
     console.error(`默认 Demo SVG 加载失败: ${DEFAULT_DEMO_SVG_PATH}`, error)
-    replaceState(createDemoState(), '当前数据：内置 Demo（默认真实 SVG 加载失败）')
+    replaceState(createDemoState(), '当前数据：内置 Demo（默认 SVG 示例加载失败）')
   }
 }
 
@@ -1641,7 +1250,7 @@ async function loadJsonAssetFromFile(file: File): Promise<void> {
       stopManualStateWatch()
       watchedStatePath = null
       watchedStateRawSnapshot = null
-      replaceState(nextState, `当前数据：${file.name}`)
+      replaceState(nextState, `当前数据：兼容 state · ${file.name}`)
     }
   } catch (error) {
     console.error(`文件加载 JSON 失败: ${file.name}`, error)
@@ -1713,7 +1322,7 @@ async function appendImportedSlidesFromFiles(
   allowJson: boolean,
 ): Promise<void> {
   try {
-    if (editingTextId) exitTextEditing({ shouldRender: false })
+    if (editingTextId) exitTextEditing(textEditingContext, { shouldRender: false })
     const importedBundle = await readImportedSlidesBundle(files, allowJson)
     ensureCompatibleCanvas(state.canvas, importedBundle.state.canvas)
 
@@ -1773,7 +1382,7 @@ async function readImportedSlidesBundle(files: File[], allowJson: boolean): Prom
 
   const svgFiles = files.filter(file => isSvgFile(file))
   if (svgFiles.length === 0) {
-    throw new Error('请选择 .svg 文件，或使用 slide_state JSON 模板')
+    throw new Error('请选择 .svg 文件；如需导入旧模板，也可使用 compat slide_state JSON。')
   }
 
   return loadSvgBundleFromFiles(svgFiles)
@@ -1815,7 +1424,7 @@ function exportAiHandoff(): void {
     void writeAiHandoffBundleToProject(projectPathHint, requestArtifact, noteArtifact)
       .then(result => {
         afterWrite(
-          `已写入 ${result.requestPath} 和 ${result.notePath}。Claude Code / Codex 现在可直接修改项目里的 slide_state.json；文件一变化，这个预览就会自动刷新。`,
+          `已写入 ${result.requestPath} 和 ${result.notePath}。Claude Code / Codex 现在可通过 compat bridge 修改项目里的 slide_state.json；文件一变化，这个 SVG 预览就会自动刷新。`,
         )
       })
       .catch(error => {
@@ -1829,8 +1438,77 @@ function exportAiHandoff(): void {
 
   downloadArtifacts([requestArtifact])
   afterWrite(
-    `当前未绑定项目，已下载 ${requestArtifact.fileName}。把它交给 Claude Code / Codex 后，如需自动刷新，请再绑定项目里的 slide_state.json。`,
+    `当前未绑定项目，已下载 ${requestArtifact.fileName}。把它交给 Claude Code / Codex 后，如需自动刷新，请再绑定项目里的 compat state（如 slide_state.json）。`,
   )
+}
+
+async function handleSaveShortcut(): Promise<void> {
+  const projectPathHint = inferProjectPathHint(watchedStatePath)
+  if (!projectPathHint) {
+    downloadCurrentCanvasSvg()
+    return
+  }
+
+  if (editingTextId) exitTextEditing(textEditingContext)
+
+  try {
+    const result = await writeProjectPagesToProject(projectPathHint)
+    const summary = `已保存 ${result.savedCount} 页到 ${result.dir}`
+    aiHandoffStatusTone = 'default'
+    aiHandoffStatusMessage = `${summary}。当前仍保持项目绑定，可继续通过 compat state 自动刷新预览。`
+    interactionHint = summary
+  } catch (error) {
+    console.error(`保存 design/pages 失败: ${projectPathHint}`, error)
+    const message = `保存失败：${(error as Error).message}`
+    aiHandoffStatusTone = 'error'
+    aiHandoffStatusMessage = `${message}。未绑定项目时，⌘/Ctrl+S 仍会继续下载当前页 SVG。`
+    interactionHint = message
+  }
+
+  // Inspector 在无选中元素时会清空 interactionHint，因此优先刷新始终可见的状态栏。
+  renderAiHandoffPanel()
+  renderInspector()
+}
+
+async function writeProjectPagesToProject(projectPath: string): Promise<SavePagesResult> {
+  const response = await fetch(LOCAL_PROJECT_SAVE_PAGES_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      projectPath,
+      pages: createProjectPageSavePayloads(),
+    }),
+  })
+
+  const payload = await response.json().catch(() => null) as
+    | { ok?: unknown; savedCount?: unknown; dir?: unknown; error?: unknown }
+    | null
+
+  if (!response.ok) {
+    const errorMessage = typeof payload?.error === 'string'
+      ? payload.error
+      : `HTTP ${response.status}`
+    throw new Error(errorMessage)
+  }
+
+  if (payload?.ok !== true || typeof payload.savedCount !== 'number' || typeof payload.dir !== 'string') {
+    throw new Error('本地 SVG 保存响应无效')
+  }
+
+  return {
+    savedCount: payload.savedCount,
+    dir: payload.dir,
+  }
+}
+
+function createProjectPageSavePayloads(): ProjectPageSavePayload[] {
+  const artifacts = createProjectSvgArtifacts(state)
+  return artifacts.map((artifact, index) => ({
+    filename: artifact.fileName,
+    svg: getSyncedRawSvgString(index, state.slides[index]) ?? artifact.content,
+  }))
 }
 
 function downloadAiHandoffNote(): void {
@@ -1913,7 +1591,7 @@ function handleImportedDesignPatch(designPatch: DesignPatch, sourceLabel: string
   stopManualStateWatch()
   watchedStatePath = null
   watchedStateRawSnapshot = null
-  if (editingTextId) exitTextEditing({ shouldRender: false })
+  if (editingTextId) exitTextEditing(textEditingContext, { shouldRender: false })
 
   const nextState = applyDesignPatch(state, designPatch)
   rawSvgStrings = reconcileRawSvgStrings(state, nextState)
@@ -1961,10 +1639,10 @@ function bindDevServerStateSync(): void {
     watchedStatePath = targetPath
     void reloadStateFromRemote(
       targetPath,
-      `已自动加载: ${payload.filePath ?? targetPath}`,
+      `已通过 compat state 自动刷新: ${payload.filePath ?? targetPath}`,
       payload.filePath ?? targetPath,
     ).catch(error => {
-      console.error(`热更新加载 slide_state 失败: ${payload.filePath ?? targetPath}`, error)
+      console.error(`热更新加载 compat state 失败: ${payload.filePath ?? targetPath}`, error)
     })
   })
 }
@@ -1973,7 +1651,7 @@ async function startManualStateWatch(path: string): Promise<void> {
   stopManualStateWatch()
   watchedStatePath = path
   watchedStateRawSnapshot = null
-  await reloadStateFromRemote(path, `已自动加载: ${path}`, path)
+  await reloadStateFromRemote(path, `已通过 compat state 自动刷新: ${path}`, path)
   manualWatchTimer = window.setInterval(() => {
     void pollManualWatch()
   }, 1500)
@@ -1992,9 +1670,9 @@ async function pollManualWatch(): Promise<void> {
     const { nextState, rawJson } = await fetchRemoteSlideState(watchedStatePath)
     if (watchedStateRawSnapshot === rawJson) return
     watchedStateRawSnapshot = rawJson
-    replaceState(nextState, `已自动加载: ${watchedStatePath}`)
+    replaceState(nextState, `已通过 compat state 自动刷新: ${watchedStatePath}`)
   } catch (error) {
-    console.error(`轮询 slide_state 失败: ${watchedStatePath}`, error)
+    console.error(`轮询 compat state 失败: ${watchedStatePath}`, error)
   }
 }
 
@@ -2034,7 +1712,7 @@ function replaceState(
   sourceLabel: string,
   options: { rawSvgStrings?: string[] } = {},
 ): void {
-  if (editingTextId) exitTextEditing({ shouldRender: false })
+  if (editingTextId) exitTextEditing(textEditingContext, { shouldRender: false })
 
   state = nextState
   rawSvgStrings = options.rawSvgStrings ? [...options.rawSvgStrings] : []
@@ -2082,7 +1760,7 @@ function undoLastChange(): void {
   const entry = historyPast.pop()
   if (!entry) return
 
-  if (editingTextId) exitTextEditing({ shouldRender: false })
+  if (editingTextId) exitTextEditing(textEditingContext, { shouldRender: false })
   const previousState = state
   state = applyDesignPatch(state, entry.inversePatch)
   rawSvgStrings = reconcileRawSvgStrings(previousState, state)
@@ -2109,7 +1787,7 @@ function redoLastChange(): void {
   const entry = historyFuture.shift()
   if (!entry) return
 
-  if (editingTextId) exitTextEditing({ shouldRender: false })
+  if (editingTextId) exitTextEditing(textEditingContext, { shouldRender: false })
   const previousState = state
   state = applyDesignPatch(state, entry.forwardPatch)
   rawSvgStrings = reconcileRawSvgStrings(previousState, state)
@@ -2170,7 +1848,7 @@ function downloadBlob(blob: Blob, fileName: string): void {
 }
 
 function downloadCurrentCanvasSvg(): void {
-  if (editingTextId) exitTextEditing()
+  if (editingTextId) exitTextEditing(textEditingContext)
 
   const serializedSvg = serializeCurrentCanvasSvg()
   if (!serializedSvg) return
@@ -2183,7 +1861,7 @@ function downloadCurrentCanvasSvg(): void {
 }
 
 function downloadCurrentCanvasTemplateSvg(): void {
-  if (editingTextId) exitTextEditing()
+  if (editingTextId) exitTextEditing(textEditingContext)
 
   const serializedSvg = serializeCurrentCanvasSvg()
   if (!serializedSvg) return
@@ -2196,7 +1874,7 @@ function downloadCurrentCanvasTemplateSvg(): void {
 }
 
 async function downloadCurrentCanvasPng(): Promise<void> {
-  if (editingTextId) exitTextEditing()
+  if (editingTextId) exitTextEditing(textEditingContext)
 
   const exportSvg = createCurrentCanvasSvgExportClone()
   if (!exportSvg) return
@@ -2241,6 +1919,23 @@ function serializeCurrentCanvasSvg(options: { svg?: SVGSVGElement } = {}): strin
   const clone = options.svg ?? createCurrentCanvasSvgExportClone()
   if (!clone) return null
   return clone.outerHTML
+}
+
+function commitCurrentSlideFromLiveCanvasSvg(): boolean {
+  const canvasSvgMarkup = serializeCurrentCanvasSvg()
+  if (!canvasSvgMarkup) return false
+
+  const result = syncCurrentSlideFromLiveSvg({
+    canvasSvgMarkup,
+    currentSlideIndex,
+    state,
+    rawSvgStrings,
+  })
+  if (!result) return false
+
+  state = result.state
+  rawSvgStrings = result.rawSvgStrings
+  return true
 }
 
 function createCurrentCanvasSvgExportClone(): SVGSVGElement | null {
@@ -2434,7 +2129,7 @@ function handleCanvasElementPointerDown(event: PointerEvent): void {
   if (!svg) return
 
   const startPoint = clientPointToViewBox(svg, event.clientX, event.clientY)
-  const initialBounds = getElementInteractionBounds(element, svg)
+  const initialBounds = getElementInteractionBounds(element, svg, pointerInteractionBoundsContext)
   if (!startPoint || !initialBounds) return
 
   interactionHint = null
@@ -2484,7 +2179,7 @@ function handleCanvasElementDoubleClick(event: MouseEvent): void {
   selectedElementId = elementId
   hoveredElementId = null
   renderInspector()
-  enterTextEditing(element)
+  enterTextEditing(element, textEditingContext)
 }
 
 function handleDocumentPointerDown(event: PointerEvent): void {
@@ -2496,7 +2191,7 @@ function handleDocumentPointerDown(event: PointerEvent): void {
     && Boolean(event.target.closest('.canvas-pane'))
 
   if (shouldSuppressCanvasInteraction) suppressNextCanvasClick = true
-  exitTextEditing()
+  exitTextEditing(textEditingContext)
 
   if (shouldSuppressCanvasInteraction) {
     event.preventDefault()
@@ -2531,12 +2226,15 @@ function handleDocumentPointerMove(event: PointerEvent): void {
     y: nextPoint.y - session.startPoint.y,
   }
 
-  if (session.kind === 'move') applyMoveFromSession(element, session.initialElement, session.initialBounds, delta)
-  else applyResizeFromSession(element, session, delta)
+  if (session.kind === 'move') {
+    applyMoveFromSession(element, session.initialElement, session.initialBounds, delta, resizeApplicationContext)
+  } else {
+    applyResizeFromSession(element, session, delta, resizeApplicationContext)
+  }
 
   hoveredElementId = session.elementId
-  syncLiveElementPreview(element, session)
-  syncInspectorPreview(element)
+  syncLiveElementPreview(element, session, liveElementPreviewContext)
+  syncInspectorPreview(element, inspectorPreviewContext)
   refreshCanvasOverlays()
 
   event.preventDefault()
@@ -2554,6 +2252,7 @@ function handleDocumentPointerUp(event: PointerEvent): void {
   if (element && isTransformableElement(element)) {
     const operations = recordElementPatchDiffs(session.initialElement, element, getPatchKeysForElement(element))
     if (operations.length > 0) {
+      commitCurrentSlideFromLiveCanvasSvg()
       commitPatchOperations(operations, 'human', `${session.kind === 'move' ? '移动' : '缩放'} ${element.id}`)
     }
   }
@@ -2576,7 +2275,7 @@ function refreshCanvasOverlays(): void {
   if (!svg) return
 
   svg.querySelector('[data-editor-overlay-root]')?.remove()
-  syncCanvasElementCursors()
+  syncCanvasElementCursors(canvasElementCursorsContext)
 
   if (editingTextId) return
 
@@ -2587,7 +2286,7 @@ function refreshCanvasOverlays(): void {
   if (hoveredElementId && hoveredElementId !== selectedElementId) {
     const hoveredElement = findElementById(getCurrentSlide().elements, hoveredElementId)
     const hoverBounds = hoveredElement
-      ? getElementInteractionBounds(hoveredElement, svg)
+      ? getElementInteractionBounds(hoveredElement, svg, pointerInteractionBoundsContext)
       : measureElementBounds(svg, hoveredElementId, 0)
     if (hoverBounds) {
       overlayRoot.append(buildOverlayRect(expandBounds(hoverBounds, OVERLAY_PADDING), {
@@ -2604,7 +2303,7 @@ function refreshCanvasOverlays(): void {
   if (selectedElementId) {
     const selectedElement = getSelectedElement()
     const selectedBounds = selectedElement
-      ? getElementInteractionBounds(selectedElement, svg)
+      ? getElementInteractionBounds(selectedElement, svg, pointerInteractionBoundsContext)
       : measureElementBounds(svg, selectedElementId, 0)
     if (selectedBounds) {
       const displayBounds = expandBounds(selectedBounds, OVERLAY_PADDING)
@@ -2630,7 +2329,7 @@ function refreshCanvasOverlays(): void {
         knob.setAttribute('vector-effect', 'non-scaling-stroke')
         knob.setAttribute('pointer-events', 'all')
         knob.style.cursor = getResizeCursor(handle.position)
-        knob.addEventListener('pointerdown', handleResizeHandlePointerDown)
+        knob.addEventListener('pointerdown', handleOverlayResizeHandlePointerDown)
         knob.addEventListener('click', stopOverlayHandleClick)
         overlayRoot.append(knob)
       }
@@ -2744,7 +2443,7 @@ function syncInteractionState(slide: Slide): void {
 }
 
 function clearSelection(): void {
-  if (editingTextId) exitTextEditing({ shouldRender: false })
+  if (editingTextId) exitTextEditing(textEditingContext, { shouldRender: false })
   interactionHint = null
   selectedElementId = null
   hoveredElementId = null
@@ -2798,10 +2497,24 @@ function inferStateFilePathHint(path: string | null): string | null {
 function inferProjectPathHint(path: string | null): string | null {
   const stateFilePath = inferStateFilePathHint(path)
   if (!stateFilePath) return null
+  return deriveProjectPathFromStateFilePath(stateFilePath)
+}
 
-  const slashIndex = stateFilePath.lastIndexOf('/')
-  if (slashIndex <= 0) return null
-  return stateFilePath.slice(0, slashIndex)
+function deriveProjectPathFromStateFilePath(stateFilePath: string): string | null {
+  const normalizedPath = stateFilePath.replace(/\\/g, '/')
+  const hasLeadingSlash = normalizedPath.startsWith('/')
+  const segments = normalizedPath.split('/').filter(Boolean)
+  if (segments.length < 2) return null
+
+  const fileName = segments.pop()?.toLowerCase() ?? ''
+  if (!fileName.endsWith('.json')) return null
+
+  if (fileName === 'slide_state.json' && segments.at(-1)?.toLowerCase() === '.cache') {
+    segments.pop()
+  }
+
+  if (segments.length === 0) return null
+  return `${hasLeadingSlash ? '/' : ''}${segments.join('/')}`
 }
 
 function findFirstText(elements: SlideElement[]): string | null {
@@ -3058,64 +2771,6 @@ function assignTextFontVirtual(
   })
 }
 
-function assignTextFontFamily(element: TextElement, fontFamily: string): PropertyMutation[] {
-  const parsed = parseFontSpec(element.font)
-  return assignTextFontSpec(element, {
-    fontSize: parsed.fontSize,
-    fontFamily,
-    fontWeight: normalizeFontWeightValue(parsed.fontWeight),
-    fontStyle: parsed.fontStyle,
-  }) ?? []
-}
-
-function assignTextFontSpec(
-  element: TextElement,
-  spec: {
-    fontSize: number
-    fontFamily: string
-    fontWeight?: string
-    fontStyle?: string
-    fontString?: string
-  },
-): PropertyMutation[] | null {
-  const normalizedWeight = normalizeFontWeightValue(spec.fontWeight)
-  const fontString = spec.fontString ?? serializeFontSpec({
-    fontSize: spec.fontSize,
-    fontFamily: spec.fontFamily,
-    fontWeight: normalizedWeight === '400' ? undefined : normalizedWeight,
-    fontStyle: spec.fontStyle,
-  })
-
-  const mutations = [
-    createPropertyMutation(element, 'font', fontString),
-    createPropertyMutation(element, 'fontSize', spec.fontSize),
-    createPropertyMutation(element, 'fontFamily', spec.fontFamily),
-    createPropertyMutation(element, 'fontWeight', normalizedWeight),
-  ].filter((mutation): mutation is PropertyMutation => Boolean(mutation))
-
-  return mutations.length > 0 ? mutations : null
-}
-
-function createPropertyMutation<T extends object, K extends keyof T>(
-  target: T,
-  key: K,
-  nextValue: T[K],
-): PropertyMutation | null {
-  const oldValue = cloneSerializableValue(target[key] as unknown)
-  const normalizedNextValue = cloneSerializableValue(nextValue as unknown)
-  if (!hasPatchValueChanged(oldValue, normalizedNextValue)) return null
-  target[key] = nextValue
-  return {
-    property: String(key),
-    oldValue,
-    newValue: normalizedNextValue,
-  }
-}
-
-function toMutationList(mutation: PropertyMutation | null): PropertyMutation[] | null {
-  return mutation ? [mutation] : null
-}
-
 function cloneTransformableElement<T extends TransformableElement>(element: T): T {
   return JSON.parse(JSON.stringify(element)) as T
 }
@@ -3139,435 +2794,6 @@ function parseNodeNumberAttribute(node: Element, attribute: string): number | nu
 
   const parsed = Number(rawValue)
   return Number.isFinite(parsed) ? parsed : null
-}
-
-function clientPointToViewBox(svg: SVGSVGElement, clientX: number, clientY: number): SvgPoint | null {
-  const svgRect = svg.getBoundingClientRect()
-  const viewBox = svg.viewBox.baseVal
-  if (!svgRect.width || !svgRect.height) return null
-
-  return {
-    x: ((clientX - svgRect.left) / svgRect.width) * viewBox.width + viewBox.x,
-    y: ((clientY - svgRect.top) / svgRect.height) * viewBox.height + viewBox.y,
-  }
-}
-
-function expandBounds(bounds: SvgBounds, padding: number): SvgBounds {
-  return {
-    x: bounds.x - padding,
-    y: bounds.y - padding,
-    width: bounds.width + padding * 2,
-    height: bounds.height + padding * 2,
-  }
-}
-
-function getResizeCursor(handle: ResizeHandle): string {
-  switch (handle) {
-    case 'nw':
-    case 'se':
-      return 'nwse-resize'
-    case 'ne':
-    case 'sw':
-      return 'nesw-resize'
-    case 'n':
-    case 's':
-      return 'ns-resize'
-    case 'e':
-    case 'w':
-      return 'ew-resize'
-  }
-}
-
-function getElementInteractionBounds(element: EditableElement, svg: SVGSVGElement): SvgBounds | null {
-  switch (element.type) {
-    case 'text':
-      return getTextInteractionBounds(element)
-    case 'rect':
-    case 'image':
-      return {
-        x: element.x,
-        y: element.y,
-        width: element.width,
-        height: element.height,
-      }
-    case 'circle':
-      return {
-        x: element.cx - element.r,
-        y: element.cy - element.r,
-        width: element.r * 2,
-        height: element.r * 2,
-      }
-    case 'line':
-      return {
-        x: Math.min(element.x1, element.x2),
-        y: Math.min(element.y1, element.y2),
-        width: Math.abs(element.x2 - element.x1),
-        height: Math.abs(element.y2 - element.y1),
-      }
-    case 'path':
-    case 'group':
-      return measureElementBounds(svg, element.id, 0)
-  }
-}
-
-function getTextInteractionBounds(element: TextElement): SvgBounds {
-  const fontSpec = parseFontSpec(element.font)
-  const layout = layoutText(element)
-  const boxHeight = element.maxHeight ?? layout.height
-  return {
-    x: getTextAnchorLeft(element),
-    y: element.y - fontSpec.fontSize,
-    width: Math.max(MIN_TEXT_WIDTH, element.width),
-    height: Math.max(fontSpec.fontSize, boxHeight),
-  }
-}
-
-function getTextAnchorLeft(element: TextElement): number {
-  switch (element.textAnchor) {
-    case 'middle':
-      return element.x - element.width / 2
-    case 'end':
-      return element.x - element.width
-    default:
-      return element.x
-  }
-}
-
-function syncCanvasElementCursors(): void {
-  for (const node of getCanvasElementNodes()) {
-    node.style.cursor = ''
-  }
-
-  if (editingTextId) return
-
-  const selected = getSelectedElement()
-  if (!selected || !isTransformableElement(selected)) return
-
-  for (const node of getCanvasElementNodes(selected.id)) {
-    node.style.cursor = 'move'
-  }
-}
-
-function stopOverlayHandleClick(event: MouseEvent): void {
-  event.preventDefault()
-  event.stopPropagation()
-}
-
-function handleResizeHandlePointerDown(event: PointerEvent): void {
-  if (editingTextId || event.button !== 0) return
-  if (!(event.currentTarget instanceof SVGRectElement)) return
-
-  const handle = event.currentTarget.dataset.editorHandle as ResizeHandle | undefined
-  const selected = getSelectedElement()
-  if (!handle || !selected) return
-
-  if (!isTransformableElement(selected)) {
-    interactionHint = selected.type === 'path'
-      ? 'path 元素暂不支持缩放；后续可考虑改为 transform 模式。'
-      : 'group 容器暂不支持缩放；请直接调整内部具体元素。'
-    renderInspector()
-    return
-  }
-
-  const svg = getCanvasSvg()
-  if (!svg) return
-
-  const startPoint = clientPointToViewBox(svg, event.clientX, event.clientY)
-  const initialBounds = getElementInteractionBounds(selected, svg)
-  if (!startPoint || !initialBounds) return
-
-  interactionHint = null
-  pointerSession = {
-    pointerId: event.pointerId,
-    kind: 'resize',
-    elementId: selected.id,
-    handle,
-    startClientX: event.clientX,
-    startClientY: event.clientY,
-    startPoint,
-    initialBounds,
-    initialElement: cloneTransformableElement(selected),
-    textNodeSnapshots: captureTextNodeSnapshots(selected),
-    started: false,
-  }
-
-  event.preventDefault()
-  event.stopPropagation()
-}
-
-function applyMoveFromSession(
-  element: TransformableElement,
-  initialElement: TransformableElement,
-  initialBounds: SvgBounds,
-  delta: SvgPoint,
-): void {
-  const nextBounds = clampMoveBounds({
-    x: initialBounds.x + delta.x,
-    y: initialBounds.y + delta.y,
-    width: initialBounds.width,
-    height: initialBounds.height,
-  })
-  const boundedDeltaX = nextBounds.x - initialBounds.x
-  const boundedDeltaY = nextBounds.y - initialBounds.y
-
-  switch (element.type) {
-    case 'text':
-      if (initialElement.type !== 'text') return
-      element.y = initialElement.y + boundedDeltaY
-      switch (initialElement.textAnchor) {
-        case 'middle':
-          element.x = nextBounds.x + initialElement.width / 2
-          return
-        case 'end':
-          element.x = nextBounds.x + initialElement.width
-          return
-        default:
-          element.x = nextBounds.x
-          return
-      }
-    case 'rect':
-      if (initialElement.type !== 'rect') return
-      element.x = nextBounds.x
-      element.y = nextBounds.y
-      return
-    case 'image':
-      if (initialElement.type !== 'image') return
-      element.x = nextBounds.x
-      element.y = nextBounds.y
-      return
-    case 'line':
-      if (initialElement.type !== 'line') return
-      element.x1 = initialElement.x1 + boundedDeltaX
-      element.y1 = initialElement.y1 + boundedDeltaY
-      element.x2 = initialElement.x2 + boundedDeltaX
-      element.y2 = initialElement.y2 + boundedDeltaY
-      return
-    case 'circle':
-      if (initialElement.type !== 'circle') return
-      element.cx = initialElement.cx + boundedDeltaX
-      element.cy = initialElement.cy + boundedDeltaY
-      return
-  }
-}
-
-function applyResizeFromSession(
-  element: TransformableElement,
-  session: PointerInteractionSession,
-  delta: SvgPoint,
-): void {
-  if (!session.handle) return
-
-  const minWidth = element.type === 'text' ? MIN_TEXT_WIDTH : MIN_RESIZE_SIZE
-  const minHeight = element.type === 'text' && session.initialElement.type === 'text'
-    ? getTextResizeMinHeight(session.initialElement)
-    : MIN_RESIZE_SIZE
-  const nextBounds = resizeBoundsFromHandle(session.initialBounds, delta, session.handle, minWidth, minHeight)
-
-  switch (element.type) {
-    case 'text':
-      if (session.initialElement.type !== 'text') return
-      applyTextResize(element, session.initialElement, session.initialBounds, nextBounds, session.handle)
-      return
-    case 'rect':
-      element.x = nextBounds.x
-      element.y = nextBounds.y
-      element.width = nextBounds.width
-      element.height = nextBounds.height
-      return
-    case 'image':
-      element.x = nextBounds.x
-      element.y = nextBounds.y
-      element.width = nextBounds.width
-      element.height = nextBounds.height
-      return
-    case 'circle':
-      applyCircleResize(element, nextBounds, session.handle)
-      return
-    case 'line':
-      if (session.initialElement.type !== 'line') return
-      applyLineResize(element, session.initialElement, session.initialBounds, nextBounds)
-      return
-  }
-}
-
-function resizeBoundsFromHandle(
-  bounds: SvgBounds,
-  delta: SvgPoint,
-  handle: ResizeHandle,
-  minWidth: number,
-  minHeight: number,
-): SvgBounds {
-  const initialMinX = bounds.x
-  const initialMaxX = bounds.x + bounds.width
-  const initialMinY = bounds.y
-  const initialMaxY = bounds.y + bounds.height
-
-  let minX = initialMinX
-  let maxX = initialMaxX
-  let minY = initialMinY
-  let maxY = initialMaxY
-
-  if (handle.includes('w')) minX = clamp(initialMinX + delta.x, 0, initialMaxX - minWidth)
-  if (handle.includes('e')) maxX = clamp(initialMaxX + delta.x, initialMinX + minWidth, state.canvas.width)
-  if (handle.includes('n')) minY = clamp(initialMinY + delta.y, 0, initialMaxY - minHeight)
-  if (handle.includes('s')) maxY = clamp(initialMaxY + delta.y, initialMinY + minHeight, state.canvas.height)
-
-  return {
-    x: minX,
-    y: minY,
-    width: maxX - minX,
-    height: maxY - minY,
-  }
-}
-
-function applyTextResize(
-  element: TextElement,
-  initialElement: TextElement,
-  initialBounds: SvgBounds,
-  nextBounds: SvgBounds,
-  handle: ResizeHandle,
-): void {
-  applyTextResizeSemantics({
-    element,
-    initialElement,
-    initialBounds,
-    nextBounds,
-    handle,
-    minWidth: MIN_TEXT_WIDTH,
-    minHeight: getTextResizeMinHeight(initialElement),
-  })
-}
-
-function getTextResizeMinHeight(element: TextElement): number {
-  const fontSpec = parseFontSpec(element.font)
-  return Math.max(MIN_RESIZE_SIZE, fontSpec.fontSize, element.lineHeight)
-}
-
-function clampMoveBounds(bounds: SvgBounds): SvgBounds {
-  const maxX = Math.max(0, state.canvas.width - bounds.width)
-  const maxY = Math.max(0, state.canvas.height - bounds.height)
-  return {
-    ...bounds,
-    x: clamp(bounds.x, 0, maxX),
-    y: clamp(bounds.y, 0, maxY),
-  }
-}
-
-function applyCircleResize(circle: CircleElement, nextBounds: SvgBounds, handle: ResizeHandle): void {
-  const fitted = fitCircleBounds(nextBounds, handle)
-  circle.cx = fitted.x + fitted.width / 2
-  circle.cy = fitted.y + fitted.height / 2
-  circle.r = fitted.width / 2
-}
-
-function fitCircleBounds(bounds: SvgBounds, handle: ResizeHandle): SvgBounds {
-  const size = Math.max(MIN_CIRCLE_DIAMETER, Math.min(bounds.width, bounds.height))
-  let x = bounds.x
-  let y = bounds.y
-
-  if (bounds.width > size) {
-    if (handle.includes('w') && !handle.includes('e')) x = bounds.x + bounds.width - size
-    else if (!handle.includes('w') && !handle.includes('e')) x = bounds.x + (bounds.width - size) / 2
-  }
-
-  if (bounds.height > size) {
-    if (handle.includes('n') && !handle.includes('s')) y = bounds.y + bounds.height - size
-    else if (!handle.includes('n') && !handle.includes('s')) y = bounds.y + (bounds.height - size) / 2
-  }
-
-  return { x, y, width: size, height: size }
-}
-
-function applyLineResize(
-  line: LineElement,
-  initialElement: LineElement,
-  initialBounds: SvgBounds,
-  nextBounds: SvgBounds,
-): void {
-  line.x1 = scaleCoordinate(initialElement.x1, initialBounds.x, initialBounds.width, nextBounds.x, nextBounds.width)
-  line.y1 = scaleCoordinate(initialElement.y1, initialBounds.y, initialBounds.height, nextBounds.y, nextBounds.height)
-  line.x2 = scaleCoordinate(initialElement.x2, initialBounds.x, initialBounds.width, nextBounds.x, nextBounds.width)
-  line.y2 = scaleCoordinate(initialElement.y2, initialBounds.y, initialBounds.height, nextBounds.y, nextBounds.height)
-}
-
-function scaleCoordinate(
-  value: number,
-  initialStart: number,
-  initialSize: number,
-  nextStart: number,
-  nextSize: number,
-): number {
-  if (initialSize === 0) return nextStart + nextSize / 2
-  return nextStart + ((value - initialStart) / initialSize) * nextSize
-}
-
-function syncLiveElementPreview(
-  element: TransformableElement,
-  session: PointerInteractionSession,
-): void {
-  switch (element.type) {
-    case 'text':
-      syncTextNodePreview(element, session)
-      return
-    case 'rect':
-      syncElementNodesAttributes(element.id, {
-        x: element.x,
-        y: element.y,
-        width: element.width,
-        height: element.height,
-      })
-      return
-    case 'image':
-      syncElementNodesAttributes(element.id, {
-        x: element.x,
-        y: element.y,
-        width: element.width,
-        height: element.height,
-      })
-      return
-    case 'line':
-      syncElementNodesAttributes(element.id, {
-        x1: element.x1,
-        y1: element.y1,
-        x2: element.x2,
-        y2: element.y2,
-      })
-      return
-    case 'circle':
-      syncElementNodesAttributes(element.id, {
-        cx: element.cx,
-        cy: element.cy,
-        r: element.r,
-      })
-      return
-  }
-}
-
-function syncTextNodePreview(element: TextElement, session: PointerInteractionSession): void {
-  if (session.initialElement.type !== 'text') return
-  syncTextSvgNodes(getCanvasElementNodes(element.id), element, document)
-}
-
-function syncElementNodesAttributes(
-  elementId: string,
-  attributes: Record<string, number>,
-): void {
-  for (const node of getCanvasElementNodes(elementId)) {
-    for (const [key, value] of Object.entries(attributes)) {
-      node.setAttribute(key, String(value))
-    }
-  }
-}
-
-function syncInspectorPreview(element: SupportedEditableElement): void {
-  selectionSummary.innerHTML = buildSelectionSummary(element)
-  if (elementFields.hidden) return
-
-  for (const field of getInspectorFields(element)) {
-    const nextValue = getFieldValue(element, field.key)
-    const controls = Array.from(elementFields.querySelectorAll<InspectorControl>(`[data-prop-key="${field.key}"]`))
-    controls.forEach(control => syncInspectorControlValue(control, field, nextValue))
-  }
 }
 
 function namespaceSvgIds(svg: string, scope: string): string {
@@ -3788,11 +3014,6 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function cloneSerializableValue<T>(value: T): T {
-  if (value === undefined) return value
-  return JSON.parse(JSON.stringify(value)) as T
-}
-
 function toSlideIdFromPath(path: string): string {
   const pathname = new URL(path, window.location.href).pathname
   const fileName = pathname.split('/').pop() || 'slide'
@@ -3829,10 +3050,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-function formatNumber(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
-}
-
 function formatColorDisplayValue(value: string): string {
   return normalizeHexColor(value) ?? value
 }
@@ -3843,29 +3060,6 @@ function toColorInputValue(value: string): string {
 
 function normalizeColorFieldValue(value: string): string {
   return normalizeHexColor(value) ?? value.trim()
-}
-
-function normalizeFontWeightValue(value: string | number | undefined): string {
-  if (value === undefined || value === null || value === '' || value === 'normal') return '400'
-  if (value === 'bold') return '700'
-  if (value === 'medium') return '500'
-
-  const numeric = typeof value === 'number' ? value : Number.parseInt(String(value), 10)
-  if (!Number.isFinite(numeric)) return '400'
-  if (numeric >= 600) return '700'
-  if (numeric >= 450) return '500'
-  return '400'
-}
-
-function serializeFontSpec(spec: ParsedFontSpec): string {
-  const parts: string[] = []
-  if (spec.fontStyle) parts.push(spec.fontStyle)
-  if (spec.fontWeight && normalizeFontWeightValue(spec.fontWeight) !== '400') {
-    parts.push(normalizeFontWeightValue(spec.fontWeight))
-  }
-  parts.push(`${formatNumber(spec.fontSize)}px`)
-  parts.push(spec.fontFamily)
-  return parts.join(' ')
 }
 
 function syncInspectorControlValue(control: InspectorControl, field: InspectorField, value: string): void {
@@ -3892,23 +3086,6 @@ function syncInspectorControlValue(control: InspectorControl, field: InspectorFi
   }
 
   if (control.value !== value) control.value = value
-}
-
-function parseFontSpec(font: string): ParsedFontSpec {
-  const match = font.match(/(?:(italic)\s+)?(?:(bold|[1-9]00)\s+)?(\d+(?:\.\d+)?)px\s+(.+)/i)
-  if (match) {
-    return {
-      fontStyle: match[1] || undefined,
-      fontWeight: match[2] || undefined,
-      fontSize: Number(match[3]),
-      fontFamily: match[4],
-    }
-  }
-
-  return {
-    fontSize: 16,
-    fontFamily: 'Inter, PingFang SC, sans-serif',
-  }
 }
 
 function getCanvasSvg(): SVGSVGElement | null {
@@ -3941,239 +3118,6 @@ function consumeSuppressedCanvasInteraction(event: Event): boolean {
   event.preventDefault()
   event.stopPropagation()
   return true
-}
-
-function enterTextEditing(element: TextElement): void {
-  const svg = getCanvasSvg()
-  if (!svg) return
-
-  if (editingTextId === element.id && activeTextEditor) {
-    activeTextEditor.textarea.focus()
-    activeTextEditor.textarea.select()
-    return
-  }
-
-  if (editingTextId) exitTextEditing()
-
-  const bounds = measureTextEditorBounds(svg, element.id, element)
-  if (!bounds) return
-
-  const foreignObject = document.createElementNS(SVG_NS, 'foreignObject')
-  foreignObject.setAttribute('data-text-editor-root', 'true')
-  foreignObject.setAttribute('x', String(bounds.x))
-  foreignObject.setAttribute('y', String(bounds.y))
-  foreignObject.setAttribute('width', String(bounds.width))
-  foreignObject.setAttribute('overflow', 'visible')
-
-  const wrapper = document.createElement('div')
-  wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml')
-  wrapper.style.display = 'flex'
-  wrapper.style.flexDirection = 'column'
-  wrapper.style.gap = '6px'
-  wrapper.style.pointerEvents = 'auto'
-
-  const textarea = document.createElement('textarea')
-  textarea.setAttribute('data-text-editor-textarea', 'true')
-  textarea.value = element.text
-  textarea.spellcheck = false
-  applyTextEditorStyles(textarea, element)
-
-  const status = document.createElement('div')
-  status.setAttribute('data-text-editor-status', 'true')
-  status.style.font = '600 12px Inter, PingFang SC, sans-serif'
-  status.style.padding = '0 2px'
-  status.style.userSelect = 'none'
-
-  const hiddenNodes = hideCanvasElementNodes(element.id)
-
-  wrapper.append(textarea, status)
-  foreignObject.append(wrapper)
-  svg.append(foreignObject)
-
-  editingTextId = element.id
-  activeTextEditor = {
-    elementId: element.id,
-    foreignObject,
-    wrapper,
-    textarea,
-    status,
-    hiddenNodes,
-    bounds,
-    initialText: element.text,
-  }
-
-  textarea.addEventListener('input', () => {
-    if (editingTextId !== element.id || !activeTextEditor) return
-    element.text = textarea.value
-    syncInspectorTextField(textarea.value)
-    syncTextEditorFrame(activeTextEditor, element)
-  })
-
-  textarea.addEventListener('keydown', event => {
-    if (event.key !== 'Escape') return
-    event.preventDefault()
-    event.stopPropagation()
-    exitTextEditing()
-  })
-
-  syncTextEditorFrame(activeTextEditor, element)
-  refreshCanvasOverlays()
-
-  requestAnimationFrame(() => {
-    textarea.focus()
-    textarea.select()
-  })
-}
-
-function exitTextEditing(options: { shouldRender?: boolean } = {}): void {
-  const editor = activeTextEditor
-  if (!editor) {
-    editingTextId = null
-    return
-  }
-
-  const currentElement = findElementById(getCurrentSlide().elements, editor.elementId)
-  if (currentElement?.type === 'text') {
-    const operation = createPropertyPatch(currentElement.id, 'text', editor.initialText, currentElement.text)
-    if (operation) {
-      commitPatchOperations([operation], 'human', `编辑文本 ${currentElement.id}`)
-    }
-  }
-
-  restoreHiddenCanvasNodes(editor.hiddenNodes)
-  editor.foreignObject.remove()
-  activeTextEditor = null
-  editingTextId = null
-  hoveredElementId = selectedElementId
-
-  if (options.shouldRender !== false) {
-    const slide = getCurrentSlide()
-    renderCanvas(slide, currentSlideIndex)
-    renderThumbnails()
-    renderInspector()
-  } else {
-    renderInspector()
-    refreshCanvasOverlays()
-  }
-}
-
-function measureTextEditorBounds(svg: SVGSVGElement, elementId: string, element: TextElement): SvgBounds | null {
-  const renderedBounds = measureElementBounds(svg, elementId, 0)
-  if (!renderedBounds) return null
-
-  const layout = layoutText(element)
-  const boxHeight = element.maxHeight ?? layout.height
-  const width = Math.max(TEXT_EDITOR_MIN_WIDTH, element.width, renderedBounds.width)
-  const height = Math.max(
-    TEXT_EDITOR_MIN_HEIGHT,
-    renderedBounds.height,
-    boxHeight + TEXT_EDITOR_HEIGHT_PADDING,
-  )
-
-  let x = renderedBounds.x
-  if (width > renderedBounds.width) {
-    switch (element.textAnchor) {
-      case 'middle':
-        x -= (width - renderedBounds.width) / 2
-        break
-      case 'end':
-        x -= width - renderedBounds.width
-        break
-    }
-  }
-
-  const fontSpec = parseFontSpec(element.font)
-  return {
-    x,
-    y: Math.min(renderedBounds.y, element.y - fontSpec.fontSize),
-    width,
-    height,
-  }
-}
-
-function applyTextEditorStyles(textarea: HTMLTextAreaElement, element: TextElement): void {
-  const fontSpec = parseFontSpec(element.font)
-
-  textarea.style.display = 'block'
-  textarea.style.margin = '0'
-  textarea.style.padding = '6px 8px'
-  textarea.style.border = '1.5px solid #2563EB'
-  textarea.style.borderRadius = '12px'
-  textarea.style.background = 'rgba(255, 255, 255, 0.96)'
-  textarea.style.boxShadow = '0 14px 30px rgba(15, 23, 42, 0.16)'
-  textarea.style.color = element.fill
-  textarea.style.fontFamily = element.fontFamily || fontSpec.fontFamily
-  textarea.style.fontSize = `${element.fontSize ?? fontSpec.fontSize}px`
-  textarea.style.fontWeight = String(element.fontWeight ?? fontSpec.fontWeight ?? '')
-  textarea.style.fontStyle = fontSpec.fontStyle ?? 'normal'
-  textarea.style.lineHeight = `${element.lineHeight}px`
-  textarea.style.letterSpacing = element.letterSpacing ? `${element.letterSpacing}px` : 'normal'
-  textarea.style.textAlign = getTextAlign(element.textAnchor)
-  textarea.style.resize = 'none'
-  textarea.style.outline = 'none'
-  textarea.style.overflow = 'hidden'
-  textarea.style.whiteSpace = 'pre-wrap'
-  textarea.style.overflowWrap = 'break-word'
-}
-
-function syncTextEditorFrame(editor: ActiveTextEditor, element: TextElement): void {
-  const layout = layoutText(element)
-  const boxHeight = element.maxHeight ?? layout.height
-  const textareaHeight = Math.max(
-    editor.bounds.height,
-    boxHeight + TEXT_EDITOR_HEIGHT_PADDING,
-  )
-  const editorHeight = textareaHeight + TEXT_EDITOR_STATUS_HEIGHT
-
-  editor.foreignObject.setAttribute('height', String(editorHeight))
-  editor.wrapper.style.width = `${editor.bounds.width}px`
-  editor.wrapper.style.height = `${editorHeight}px`
-  editor.textarea.style.width = `${editor.bounds.width}px`
-  editor.textarea.style.height = `${textareaHeight}px`
-  editor.status.textContent = buildTextEditorStatus(layout.lineCount, layout.height, element.maxHeight, layout.overflow)
-  editor.status.style.color = layout.overflow ? '#B91C1C' : '#475569'
-}
-
-function buildTextEditorStatus(lineCount: number, height: number, maxHeight: number | undefined, overflow: boolean): string {
-  const parts = [
-    `Pretext ${lineCount} 行`,
-    `高度 ${formatNumber(height)}px`,
-  ]
-
-  if (maxHeight !== undefined) parts.push(`max ${formatNumber(maxHeight)}px`)
-  parts.push(overflow ? '已溢出' : '未溢出')
-  return parts.join(' · ')
-}
-
-function hideCanvasElementNodes(elementId: string): HiddenCanvasNode[] {
-  return getCanvasElementNodes(elementId).map(node => {
-    const opacity = node.getAttribute('opacity')
-    node.setAttribute('opacity', '0')
-    return { node, opacity }
-  })
-}
-
-function restoreHiddenCanvasNodes(hiddenNodes: HiddenCanvasNode[]): void {
-  for (const hidden of hiddenNodes) {
-    if (hidden.opacity === null) hidden.node.removeAttribute('opacity')
-    else hidden.node.setAttribute('opacity', hidden.opacity)
-  }
-}
-
-function syncInspectorTextField(value: string): void {
-  const field = elementFields.querySelector<HTMLTextAreaElement | HTMLInputElement>('[data-prop-key="text"]')
-  if (field && field.value !== value) field.value = value
-}
-
-function getTextAlign(textAnchor?: TextElement['textAnchor']): 'left' | 'center' | 'right' {
-  switch (textAnchor) {
-    case 'middle':
-      return 'center'
-    case 'end':
-      return 'right'
-    default:
-      return 'left'
-  }
 }
 
 function roundedRectPath(x: number, y: number, width: number, height: number, radius: number): string {
@@ -4353,7 +3297,7 @@ function createDemoState(): SlideState {
             x: 100,
             y: 294,
             width: 560,
-            text: 'PPT Master Editor',
+            text: 'Design Editor',
             font: '700 60px Inter, PingFang SC, sans-serif',
             lineHeight: 68,
             fill: '#FFFFFF',
@@ -4376,7 +3320,7 @@ function createDemoState(): SlideState {
             x: 100,
             y: 414,
             width: 520,
-            text: '以 slide_state 为真相源，直接在浏览器里渲染、翻页和预览 SVG 幻灯片。',
+            text: '默认直接打开和微调真实 SVG 页面，compat state 只用于桥接导入、handoff 和旧项目兼容。',
             font: '18px Inter, PingFang SC, sans-serif',
             lineHeight: 28,
             fill: '#E2E8F0',
@@ -4488,7 +3432,7 @@ function createDemoState(): SlideState {
                 x: 100,
                 y: 640,
                 width: 380,
-                text: 'editor/index.html · app.ts · slideToSvg()',
+                text: 'editor/index.html · app.ts · SVG-first',
                 font: '14px Inter, PingFang SC, sans-serif',
                 lineHeight: 18,
                 fill: '#FFFFFF',
@@ -4617,7 +3561,7 @@ function createDemoState(): SlideState {
                 x: 24,
                 y: 72,
                 width: 200,
-                text: '实时插入 `slideToSvg()` 生成的完整 SVG。',
+                text: '实时预览真实 SVG 页面；compat state 只在桥接时参与。',
                 font: '15px Inter, PingFang SC, sans-serif',
                 lineHeight: 24,
                 fill: '#4338CA',
@@ -4639,7 +3583,7 @@ function createDemoState(): SlideState {
                 x: 312,
                 y: 72,
                 width: 210,
-                text: '先展示 slide 元数据，后续接选中与 patch。',
+                text: '先展示页面元数据，后续接选中与 patch。',
                 font: '15px Inter, PingFang SC, sans-serif',
                 lineHeight: 24,
                 fill: '#0F766E',
@@ -4661,7 +3605,7 @@ function createDemoState(): SlideState {
                 x: 24,
                 y: 220,
                 width: 480,
-                text: '每页复用同一套 slide_state 渲染逻辑，点击缩略图即可切换当前页面。',
+                text: '默认按 SVG 页面切换缩略图；compat state 只在导入旧资产或本地桥接时介入。',
                 font: '15px Inter, PingFang SC, sans-serif',
                 lineHeight: 24,
                 fill: '#334155',
@@ -4767,7 +3711,7 @@ function createDemoState(): SlideState {
             x: 88,
             y: 154,
             width: 620,
-            text: 'MVP 已把渲染层跑通，后续只需在同一状态树上叠加交互层，而不是推倒重来。',
+            text: 'MVP 已把 SVG-first 预览层跑通，后续只需继续接交互层，而不是推倒重来。',
             font: '18px Inter, PingFang SC, sans-serif',
             lineHeight: 28,
             fill: '#475569',
@@ -4800,7 +3744,7 @@ function createDemoState(): SlideState {
                 x: 24,
                 y: 96,
                 width: 280,
-                text: '以 HTML 为入口，直接挂载 slideToSvg() 输出结果。',
+                text: '以 HTML 为入口，优先挂载真实 SVG 页面。',
                 font: '16px Inter, PingFang SC, sans-serif',
                 lineHeight: 24,
                 fill: '#475569',
@@ -4811,7 +3755,7 @@ function createDemoState(): SlideState {
                 x: 452,
                 y: 50,
                 width: 220,
-                text: '多页状态',
+                text: '多页上下文',
                 font: '700 26px Inter, PingFang SC, sans-serif',
                 lineHeight: 32,
                 fill: '#0F172A',
@@ -4822,7 +3766,7 @@ function createDemoState(): SlideState {
                 x: 400,
                 y: 96,
                 width: 280,
-                text: '上一页、下一页、页码与缩略图共用同一份 state。',
+                text: '上一页、下一页、页码与缩略图围绕同一组页面上下文切换。',
                 font: '16px Inter, PingFang SC, sans-serif',
                 lineHeight: 24,
                 fill: '#475569',
@@ -4892,7 +3836,7 @@ function createDemoState(): SlideState {
                 x: 0,
                 y: 0,
                 width: 440,
-                text: 'slide_state → SVG → 浏览器编辑器',
+                text: 'SVG 页面 → Design Editor → 导出',
                 font: '700 30px Inter, PingFang SC, sans-serif',
                 lineHeight: 36,
                 fill: '#FFFFFF',

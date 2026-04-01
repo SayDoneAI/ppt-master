@@ -1,5 +1,6 @@
 export const LOCAL_AI_HANDOFF_DIR = '.cache/ai_handoff'
 export const LOCAL_AI_HANDOFF_WRITE_ENDPOINT = '/__ppt_master/write-ai-handoff'
+export const LOCAL_PROJECT_SAVE_PAGES_ENDPOINT = '/__ppt_master/save-pages'
 
 export function sanitizeHandoffFileName(fileName: string): string {
   const normalized = fileName.trim().replace(/\\/g, '/')
