@@ -365,6 +365,30 @@
         font-weight: 600;
       }
 
+      .align-toolbar {
+        display: flex;
+        gap: 2px;
+        padding: 4px 0;
+      }
+
+      .align-toolbar button {
+        flex: 1;
+        padding: 5px 0;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background: var(--panel);
+        color: var(--text-secondary);
+        font-size: 11px;
+        cursor: pointer;
+        line-height: 1;
+        transition: background 0.1s, color 0.1s;
+      }
+
+      .align-toolbar button:hover {
+        background: var(--brand-soft);
+        color: var(--brand);
+      }
+
       .selection-summary {
         display: flex;
         flex-direction: column;
@@ -1095,6 +1119,14 @@
             点一下海报里的文字或卡片，就能直接拖动、改字、调大小。
           </div>
           <form id="elementFields" class="property-form" autocomplete="off"></form>
+          <div id="alignToolbar" class="align-toolbar" hidden>
+            <button type="button" data-align="left" title="左对齐"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2v10" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="4" width="8" height="2.5" rx=".5" fill="currentColor"/><rect x="4" y="7.5" width="5" height="2.5" rx=".5" fill="currentColor"/></svg></button>
+            <button type="button" data-align="center-h" title="水平居中"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 2v10" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="4" width="10" height="2.5" rx=".5" fill="currentColor"/><rect x="3.5" y="7.5" width="7" height="2.5" rx=".5" fill="currentColor"/></svg></button>
+            <button type="button" data-align="right" title="右对齐"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2v10" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="4" width="8" height="2.5" rx=".5" fill="currentColor"/><rect x="5" y="7.5" width="5" height="2.5" rx=".5" fill="currentColor"/></svg></button>
+            <button type="button" data-align="top" title="顶部对齐"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2h10" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="4" width="2.5" height="8" rx=".5" fill="currentColor"/><rect x="7.5" y="4" width="2.5" height="5" rx=".5" fill="currentColor"/></svg></button>
+            <button type="button" data-align="center-v" title="垂直居中"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7h10" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="2" width="2.5" height="10" rx=".5" fill="currentColor"/><rect x="7.5" y="3.5" width="2.5" height="7" rx=".5" fill="currentColor"/></svg></button>
+            <button type="button" data-align="bottom" title="底部对齐"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 12h10" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="2" width="2.5" height="8" rx=".5" fill="currentColor"/><rect x="7.5" y="5" width="2.5" height="5" rx=".5" fill="currentColor"/></svg></button>
+          </div>
           <div class="chip-list">
             <div id="patchCountBadge" class="chip">0 次编辑</div>
           </div>

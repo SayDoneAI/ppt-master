@@ -194,6 +194,7 @@ const fontPresetGrid = getElement<HTMLDivElement>('fontPresetGrid')
 const selectionSummary = getElement<HTMLDivElement>('selectionSummary')
 const selectionEmptyState = getElement<HTMLDivElement>('selectionEmptyState')
 const elementFields = getElement<HTMLFormElement>('elementFields')
+const alignToolbar = getElement<HTMLDivElement>('alignToolbar')
 const patchCountBadge = getElement<HTMLDivElement>('patchCountBadge')
 const aiTargetSummary = getElement<HTMLDivElement>('aiTargetSummary')
 const aiInstructionInput = getElement<HTMLTextAreaElement>('aiInstructionInput')
@@ -696,12 +697,14 @@ function renderInspector(): void {
     selectionEmptyState.hidden = false
     elementFields.hidden = true
     elementFields.innerHTML = ''
+    alignToolbar.hidden = true
     return
   }
 
   selectionSummary.innerHTML = buildSelectionSummary(selected)
   selectionEmptyState.hidden = true
   elementFields.hidden = false
+  alignToolbar.hidden = !isTransformableElement(selected)
 
   if (!isSupportedEditableElement(selected)) {
     elementFields.innerHTML = `
@@ -986,6 +989,12 @@ function bindInspectorInteractions(): void {
 
   elementFields.addEventListener('input', handleInspectorMutation)
   elementFields.addEventListener('change', handleInspectorMutation)
+
+  alignToolbar.addEventListener('click', event => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-align]')
+    if (!button) return
+    alignSelectedElement(button.dataset.align as AlignDirection)
+  })
 }
 
 function bindToolbarFileActions(): void {
@@ -2572,6 +2581,98 @@ function isSupportedEditableElement(element: EditableElement): element is Suppor
 
 function isTransformableElement(element: EditableElement): element is TransformableElement {
   return element.type !== 'group' && element.type !== 'path'
+}
+
+type AlignDirection = 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom'
+
+function alignSelectedElement(direction: AlignDirection): void {
+  const element = getSelectedElement()
+  if (!element || !isTransformableElement(element)) return
+
+  const { width: canvasW, height: canvasH } = state.canvas
+  const previous = cloneTransformableElement(element)
+
+  // Get element bounds in canvas coordinates
+  const svg = getCanvasSvg()
+  if (!svg) return
+  const bounds = measureElementBounds(svg, element.id, 0)
+  if (!bounds) return
+
+  switch (element.type) {
+    case 'text':
+    case 'rect':
+    case 'image': {
+      const el = element as { x: number; y: number; width: number; height: number }
+      switch (direction) {
+        case 'left': el.x = 0; break
+        case 'center-h': el.x = (canvasW - el.width) / 2; break
+        case 'right': el.x = canvasW - el.width; break
+        case 'top': el.y = element.type === 'text' ? bounds.y - el.y + 0 : 0; break
+        case 'center-v': {
+          if (element.type === 'text') {
+            el.y += (canvasH - bounds.height) / 2 - bounds.y
+          } else {
+            el.y = (canvasH - el.height) / 2
+          }
+          break
+        }
+        case 'bottom': {
+          if (element.type === 'text') {
+            el.y += canvasH - bounds.height - bounds.y
+          } else {
+            el.y = canvasH - el.height
+          }
+          break
+        }
+      }
+      break
+    }
+    case 'line': {
+      const el = element as { x1: number; y1: number; x2: number; y2: number }
+      const minX = Math.min(el.x1, el.x2)
+      const maxX = Math.max(el.x1, el.x2)
+      const minY = Math.min(el.y1, el.y2)
+      const maxY = Math.max(el.y1, el.y2)
+      const w = maxX - minX
+      const h = maxY - minY
+      let dx = 0, dy = 0
+      switch (direction) {
+        case 'left': dx = -minX; break
+        case 'center-h': dx = (canvasW - w) / 2 - minX; break
+        case 'right': dx = canvasW - maxX; break
+        case 'top': dy = -minY; break
+        case 'center-v': dy = (canvasH - h) / 2 - minY; break
+        case 'bottom': dy = canvasH - maxY; break
+      }
+      el.x1 += dx; el.x2 += dx
+      el.y1 += dy; el.y2 += dy
+      break
+    }
+    case 'circle': {
+      const el = element as { cx: number; cy: number; r: number }
+      switch (direction) {
+        case 'left': el.cx = el.r; break
+        case 'center-h': el.cx = canvasW / 2; break
+        case 'right': el.cx = canvasW - el.r; break
+        case 'top': el.cy = el.r; break
+        case 'center-v': el.cy = canvasH / 2; break
+        case 'bottom': el.cy = canvasH - el.r; break
+      }
+      break
+    }
+  }
+
+  const operations = recordElementPatchDiffs(previous, element, getPatchKeysForElement(element))
+  if (operations.length > 0) {
+    commitCurrentSlideFromLiveCanvasSvg()
+    commitPatchOperations(operations, 'human', `对齐 ${element.id}`)
+  }
+
+  const slide = getCurrentSlide()
+  renderCanvas(slide, currentSlideIndex)
+  renderThumbnails()
+  renderInspector()
+  refreshCanvasOverlays()
 }
 
 function getFieldValue(element: SupportedEditableElement, key: string): string {
