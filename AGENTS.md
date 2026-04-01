@@ -1,8 +1,8 @@
-# AGENTS.md — PPT Master 完整指南
+# AGENTS.md — ppt-master Multi-Page SVG Design Workflow Guide
 
-> ⚠️ **AI 代理注意**：本文件是 PPT 生成流程的完整指南，包含工作流程和规则手册。
+> ⚠️ **AI 代理注意**：本文件描述的是一个 AI-native multi-page SVG design system 的工作流与规则手册。主交付是多页 SVG design deliverable；PPTX 是兼容导出之一，不是默认叙事。
 >
-> 执行 `/generate-ppt` 前必须阅读本文件。
+> 执行仓库内生成工作流前必须阅读本文件；`/generate-ppt` 只是沿用历史命名的入口之一。
 
 ---
 
@@ -10,7 +10,7 @@
 
 | 部分 | 内容 |
 |------|------|
-| [工作流程](#工作流程) | 从源文档到 PPT 的完整执行步骤 |
+| [工作流程](#工作流程) | 从源文档到 design deliverable 的完整执行步骤 |
 | [规则手册](#规则手册) | 约束边界、技术规范、角色切换协议 |
 | [常用命令](#常用命令) | 工具命令快速参考 |
 | [重要资源](#重要资源) | 模板、图标、文档链接 |
@@ -19,13 +19,22 @@
 
 # 工作流程
 
-> 📌 **这是 PPT Master 系统的主执行流程**。所有 PPT 生成任务都应从此工作流开始。
+> 📌 **这是 ppt-master 的主执行流程**。所有多页 SVG design deliverable 任务都应从此工作流开始。
 
 ## 工作流概览
 
 ```
-源文档 → 创建项目 → 模板选项 → Strategist → [Image_Generator] → Executor → slide_state bridge → 后处理 → 导出
+源文档 → 创建项目 → 模板选项 → Strategist → [Image_Generator] → Executor → 兼容 bridge（如需要） → 后处理 → 导出
 ```
+
+## 产品模型
+
+- `ppt-master` 应被理解为 **AI-native 的 multi-page SVG design system**
+- 一个项目 = 一组视觉页；一页 = 一张独立画布
+- 海报 = 1 页 SVG；小红书 / Story / 图文 / 报告 = N 页 SVG
+- 主产物是 SVG page set；PNG / PPTX 都只是导出目标
+- 所有 Executor 共用同一 SVG-first 单轨：先产出 `svg_output/*.svg`，`slide_state.json` 仅在 compat / bridge / handoff 场景按需补齐
+- `slide_state` 只属于 editor / handoff / legacy project 的 compat path，不是主模型
 
 ---
 
@@ -36,7 +45,7 @@
 ### 检查项 1：确认已理解核心规则
 
 - [ ] 角色切换协议（切换角色前必须阅读角色定义文件）
-- [ ] SVG 技术约束（禁用功能黑名单、PPT 兼容性规则）
+- [ ] SVG 技术约束（禁用功能黑名单、兼容导出规则）
 - [ ] 源内容自动处理（PDF/URL 必须立即转换）
 
 **确认完成后，输出以下标记：**
@@ -235,56 +244,52 @@ cp templates/layouts/<模板名>/*.jpeg <项目路径>/images/ 2>/dev/null || tr
    ```
 
 2. **【视觉构建阶段】**：
-   - `Executor_General`（通用灵活，当前正式原生路径）：
-     - 生成/更新 `<项目路径>/slide_state.json` 作为第一产物
-     - `slides[].id` 直接对应最终 SVG 文件名 stem
-     - 运行 `python3 tools/slide_state_bridge.py render <项目路径>` 回写兼容 `svg_output/`
-   - `Executor_Consultant` / `Executor_Consultant_Top`（当前兼容路径）：
-     - 批量生成 SVG 页面
-     - 保存到 `<项目路径>/svg_output/`
+   - 所有 Executor 默认直接批量生成 SVG 页面，不区分 General / Consultant 的产出双轨
+   - 保存到 `<项目路径>/svg_output/`
+   - 如项目需接浏览器编辑器 / 本地 AI handoff / 旧路径兼容，再运行 `python3 tools/slide_state_bridge.py sync <项目路径>` 生成或更新 `<项目路径>/slide_state.json`
 
 3. **【逻辑构建阶段】**（必须）：
    - 生成完整演讲备注文稿
    - 保存到 `<项目路径>/notes/total.md`
 
-4. **【slide_state 收敛阶段】**（当前正式工作流默认执行）：
-   - `Executor_General` 路径：运行 `python3 tools/slide_state_bridge.py render <项目路径>`
-   - `Executor_Consultant` / `Executor_Consultant_Top` 路径：运行 `python3 tools/slide_state_bridge.py sync <项目路径>`
-   - 目标是确保 `<项目路径>/slide_state.json` 与兼容的 `svg_output/` 同步存在
+4. **【兼容 bridge 收敛阶段】**（当项目接浏览器编辑器、本地 AI handoff 或旧路径时执行）：
+   - 当项目已有 `slide_state.json` 且需要回写兼容 SVG 时，运行 `python3 tools/slide_state_bridge.py render <项目路径>`
+   - 当项目已有 `svg_output/` 且需要补齐 compat state 时，运行 `python3 tools/slide_state_bridge.py sync <项目路径>`
+   - 目标是让 `<项目路径>/slide_state.json` 与兼容的 `svg_output/` 在需要时同步存在，而不是把 JSON 变成默认主叙事
 
 5. **阶段检查点**：
    ```markdown
    ## ✅ Executor 阶段完成
    ### 视觉构建阶段
-   - [x] 已生成项目级 `slide_state.json`（General 路径）或原始 `svg_output/`（Consultant 路径）
+   - [x] 已生成 `svg_output/` 中的 SVG 页面
    
    ### 逻辑构建阶段
    - [x] 已生成完整演讲备注 notes/total.md
 
-   ### slide_state 收敛阶段
-   - [x] 已生成/更新项目级 `slide_state.json`
-   - [x] 已从 `slide_state.json` 回写兼容的 `svg_output/`
+   ### 兼容 bridge 收敛阶段
+   - [x] 若项目接浏览器编辑器 / handoff，已生成或更新项目级 `slide_state.json`
    ```
 
 ---
 
 ## 阶段七：后处理与导出（自动执行）
 
-> ⚠️ **必须按顺序执行以下四个命令，不可省略或替换！**
+> ⚠️ **前 3 个命令用于收尾 SVG 主产物，必须按顺序执行；第 4 个命令用于按需兼容导出 PPTX。**
 
-### 步骤 1：slide_state 收敛
+### 步骤 1：兼容 bridge 收敛
 // turbo
 ```bash
-# Executor_General 的 state-first 正式路径
+# 当项目已有编辑器兼容 state 时，从 `slide_state.json` 回写兼容 SVG
 python3 tools/slide_state_bridge.py render <项目路径>
 ```
 
-- `Executor_General` 默认先产出 `slide_state.json`，这里执行 `render`
-- 现有 `Executor_Consultant` / `Executor_Consultant_Top` 仍先写 `svg_output/`，此时改用：
+- 当项目已经走浏览器编辑器 / handoff / 本地 patch 链路时，执行 `render`
+- 当项目已经有 `svg_output/` 且需要补齐 compat state 时，执行：
   // turbo
   ```bash
   python3 tools/slide_state_bridge.py sync <项目路径>
   ```
+- 这一步的目标是桥接兼容资产，不是引导用户把 JSON 当成唯一主路径
 
 ### 步骤 2：拆分演讲备注
 // turbo
@@ -308,7 +313,7 @@ python3 tools/finalize_svg.py <项目路径>
 
 > ❌ **禁止**：使用 `cp` 命令替代此步骤！
 
-### 步骤 4：导出 PPTX
+### 步骤 4：如需兼容导出 PPTX
 // turbo
 ```bash
 python3 tools/svg_to_pptx.py <项目路径> -s final
@@ -316,6 +321,7 @@ python3 tools/svg_to_pptx.py <项目路径> -s final
 
 - `-s final` 参数指定从 `svg_final/` 目录读取
 - 默认会嵌入演讲备注
+- 仅在用户需要演示文稿兼容产物时执行
 
 ---
 
@@ -342,12 +348,12 @@ python3 tools/svg_to_pptx.py <项目路径> -s final
 - [ ] 八项确认已完成
 - [ ] 设计规范已保存
 - [ ] 图片已就绪（如需要）
-- [ ] `slide_state.json` 已生成/更新
+- [ ] 若使用编辑器 / handoff / 兼容链路，`slide_state.json` 已生成/更新
 - [ ] SVG 文件已生成到 `svg_output/`
 - [ ] 演讲备注已生成 `notes/total.md`
 - [ ] 后处理已执行（`finalize_svg.py`）
 - [ ] SVG 文件已复制到 `svg_final/`
-- [ ] PPTX 已导出
+- [ ] 如需兼容演示文稿，PPTX 已导出
 
 ---
 
@@ -366,13 +372,13 @@ python3 tools/svg_to_pptx.py <项目路径> -s final
 
 # 规则手册
 
-> 以下是 PPT Master 系统的约束边界和技术规范，执行工作流时必须遵守。
+> 以下是 ppt-master 的约束边界和技术规范，执行工作流时必须遵守。
 
 ---
 
 ## 项目概述
 
-PPT Master 是一个 AI 驱动的多格式 SVG 内容生成系统，通过多角色协作将来源文档转化为高质量输出。
+ppt-master 应被理解为一个 AI-native multi-page SVG design system，通过多角色协作把来源文档转化为多页 SVG design deliverable。一个项目由多张独立画布组成；海报是 1 页 SVG，小红书 / Story / 图文 / 报告是 N 页 SVG；PPTX 只是兼容消费与导出之一。仓库名沿用历史，不等于当前产品定义。
 
 ---
 
@@ -384,7 +390,7 @@ PPT Master 是一个 AI 驱动的多格式 SVG 内容生成系统，通过多角
 
 | 阶段         | 必须阅读的文件                     | 触发条件                                     |
 | ------------ | ---------------------------------- | -------------------------------------------- |
-| 策略规划     | `roles/Strategist.md`              | 用户提出新的 PPT/内容生成需求                |
+| 策略规划     | `roles/Strategist.md`              | 用户提出新的视觉内容 / 版式生成需求          |
 
 | 图片生成     | `roles/Image_Generator.md`         | 图片方式包含「C) AI 生成」（如 C、B+C、C+D） |
 | 通用风格执行 | `roles/Executor_General.md`        | 用户选择「A) 通用灵活」设计风格              |
@@ -454,8 +460,7 @@ PPT Master 是一个 AI 驱动的多格式 SVG 内容生成系统，通过多角
 
 ### 视觉构建阶段
 - [x] 已阅读对应的 Executor 角色定义
-- [x] 已生成项目级 `slide_state.json`（General 路径）或原始 `svg_output/`（Consultant 路径）
-- [x] 已从 `slide_state.json` 回写兼容的 `svg_output/`
+- [x] 已生成视觉稿主产物 `svg_output/*.svg`
 - [x] 已通过质量检查
 
 ### 逻辑构建阶段（必须）
@@ -469,7 +474,7 @@ python3 tools/total_md_split.py <项目路径>
 # 2. 后处理（修正图片路径、嵌入图标）
 python3 tools/finalize_svg.py <项目路径>
 
-# 3. 导出为 PPTX（默认嵌入演讲备注）
+# 3. 如需兼容导出 PPTX（默认嵌入演讲备注）
 python3 tools/svg_to_pptx.py <项目路径> -s final
 ```
 
@@ -506,7 +511,7 @@ python3 tools/svg_to_pptx.py <项目路径> -s final
 
 在任何内容分析之前，**必须先完成八项确认**：
 
-1. **画布格式** - 根据场景推荐（PPT/小红书/朋友圈等）
+1. **画布格式** - 根据场景推荐（小红书 / 朋友圈 / Story / PPT 等）
 2. **页数范围** - 基于内容量给出建议
 3. **目标受众与场景** - 给出初步判断
 4. **设计风格** - A) 通用灵活 B) 一般咨询 C) 顶级咨询（MBB 级），给出推荐理由
@@ -529,11 +534,11 @@ python3 tools/svg_to_pptx.py <项目路径> -s final
 - **字体**: 使用系统字体（见规范中的字体方案）
 - **换行**: 使用 `<tspan>` 手动换行
 
-**禁用功能黑名单**（记忆口诀：PPT 只认基础形状 + 内联样式 + 系统字体）：
+**禁用功能黑名单**（记忆口诀：兼容导出只认基础形状 + 内联样式 + 系统字体）：
 
 `clipPath` | `mask` | `<style>` | `class/id` | 外部 CSS | `<foreignObject>` | `textPath` | `@font-face` | `<animate*>` | `<script>` | `marker-end` | `<iframe>`
 
-**PPT 兼容性**（记忆口诀：不认 rgba、不认组透明、不认图片透明、不认 marker）：
+**兼容导出约束**（尤其是 PPTX；记忆口诀：不认 rgba、不认组透明、不认图片透明、不认 marker）：
 
 | ❌ 禁止 | ✅ 替代方案 |
 |--------|-------------|
@@ -571,10 +576,10 @@ python3 tools/web_to_md.py <URL> 或 node tools/web_to_md.cjs <URL>
 # 初始化项目
 python3 tools/project_manager.py init <名称> --format ppt169
 
-# 将现有 svg_output/ 收敛为 slide_state.json，并回写兼容 SVG
+# 兼容旧项目或 SVG-first 资产：将现有 `svg_output/` 收敛为 `slide_state.json`
 python3 tools/slide_state_bridge.py sync <项目路径>
 
-# 如果项目已直接生成 slide_state.json，仅从 state 渲染 svg_output/
+# 若项目已绑定浏览器编辑器兼容 state，仅从 `slide_state.json` 渲染 `svg_output/`
 python3 tools/slide_state_bridge.py render <项目路径>
 
 # 验证项目
@@ -599,10 +604,10 @@ python3 -m http.server -d <路径>/svg_output 8000
 # 预览最终版本
 python3 -m http.server -d <路径>/svg_final 8000
 
-# ⭐ 导出为 PPTX（默认嵌入演讲备注）
+# ⭐ 如需兼容导出 PPTX（默认嵌入演讲备注）
 python3 tools/svg_to_pptx.py <项目路径> -s final
 
-# 导出 PPTX 但不嵌入备注
+# 如需兼容导出 PPTX 且不嵌入备注
 python3 tools/svg_to_pptx.py <项目路径> -s final --no-notes
 
 # ⭐ 拆分讲稿文件（将 total.md 拆分为多个讲稿文件）
@@ -623,7 +628,7 @@ project/
 │   ├── 01_封面.md
 │   ├── 02_目录.md
 │   └── ...
-└── *.pptx         # 导出的 PPT 文件
+└── *.pptx         # 如需要时导出的兼容演示文稿
 ```
 
 ---
@@ -636,7 +641,7 @@ project/
 - [ ] 使用 `<tspan>` 手动换行
 - [ ] 颜色符合设计规范
 - [ ] **黑名单检查**: 无 `clipPath` / `mask` / `<style>` / `class` / `id` / 外部 CSS / `<foreignObject>` / `<symbol>+<use>` / `textPath` / `@font-face` / `animate*` / `set` / `script` / `on*` / `marker` / `marker-end` / `iframe`
-- [ ] **PPT 兼容**: 无 `rgba()`、无 `<g opacity>`、图片用遮罩层、仅内联样式
+- [ ] **兼容导出**: 无 `rgba()`、无 `<g opacity>`、图片用遮罩层、仅内联样式
 - [ ] **对齐**: 元素沿网格线对齐
 - [ ] **对比**: 建立清晰的视觉层级
 - [ ] **重复**: 同类元素风格一致
@@ -699,6 +704,7 @@ project/
 - 本项目定义 AI 角色协作机制，而非可执行代码
 - 质量取决于对设计规范与画布格式的严格执行
 - **角色切换协议是强制要求，不可跳过**
+- 外部本地 agent / skill / command 只是仓库外围的编排层或调用方式，不属于本仓库产品命名
 
 ### 角色切换强制规则
 
@@ -731,12 +737,12 @@ project/
 - 图片使用方式需在八项确认中确认（不使用 / 用户提供 / AI 生成 / 占位符）
 - 若图片方案包含「B) 用户提供」，策略师在八项确认后、内容分析前必须运行 `python3 tools/analyze_images.py <项目路径>/images` 并填充图片资源清单
 - **图片生成流程**：如果图片方式**包含**「C) AI 生成」（如 C、B+C、C+D），**必须**先切换到 Image_Generator 角色，阅读角色定义，完成图片生成后再进入 Executor 阶段
-- **Executor 两阶段**：视觉构建完成后，`Executor_General` 必须先产出项目级 `slide_state.json` 并 `render` 出兼容 `svg_output/`；`Executor_Consultant` / `Executor_Consultant_Top` 当前仍先产出 `svg_output/`。无论哪条路径，随后都**必须**进入逻辑构建阶段生成演讲备注 `notes/total.md`，**禁止**跳过此步骤直接进入后处理
+- **Executor 两阶段**：所有 Executor 都先产出 `svg_output/` 中的 SVG 页面；如需浏览器编辑器 / handoff / 旧路径兼容，再通过 `sync` 补齐 `slide_state.json`。若后续直接在 compat state 上继续本地 patch，则再执行 `render / validate` 收敛回 SVG。无论哪条兼容链路，随后都**必须**进入逻辑构建阶段生成演讲备注 `notes/total.md`，**禁止**跳过此步骤直接进入后处理
 - **编辑器本地 AI handoff 边界**：
   - `design_patch.ai-request.json` 是机器可读 handoff 输入，优先放在项目根目录
   - `design_patch.ai-handoff.md` 是给 Claude Code / Codex 本地 skill / command 的执行说明
   - 浏览器编辑器只负责导出 / 导入文件，不提供浏览器直连或服务端 API 协议
-  - 若本地 agent 直接修改项目，则更新 `slide_state.json` 后执行 `render` / `validate`；若只返回 `design_patch.json`，则再拖回编辑器应用
+  - 若本地 agent 直接修改项目，则在这条兼容链路里更新 `slide_state.json` 后执行 `render` / `validate`；若只返回 `design_patch.json`，则再拖回编辑器应用
 
 ### 后处理提示
 
@@ -749,7 +755,7 @@ python3 tools/total_md_split.py <项目路径>
 # 2. 后处理（修正图片路径、嵌入图标）
 python3 tools/finalize_svg.py <项目路径>
 
-# 3. 导出 PPTX
+# 3. 如需兼容导出 PPTX
 python3 tools/svg_to_pptx.py <项目路径> -s final
 ```
 

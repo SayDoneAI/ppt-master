@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PPT Master Editor MVP</title>
+    <title>Design Editor MVP</title>
     <style>
       :root {
         color-scheme: light;
@@ -1050,10 +1050,10 @@
     <div class="editor-shell">
       <header class="topbar">
         <div class="topbar__brand">
-          <div class="topbar__logo">PM</div>
+          <div class="topbar__logo">DE</div>
           <div class="topbar__title">
-            <strong>PPT Master Editor</strong>
-            <span>先看画面，再决定让 AI 改还是自己微调</span>
+            <strong>Design Editor</strong>
+            <span>先看 SVG 页面，再决定让 AI 改还是自己微调</span>
           </div>
         </div>
         <div class="toolbar-actions">
@@ -1128,11 +1128,11 @@
             ></textarea>
           </div>
           <div class="ai-handoff-actions">
-            <button id="watchFileBtn" type="button" data-variant="secondary">连接项目</button>
+            <button id="watchFileBtn" type="button" data-variant="secondary">绑定项目预览</button>
             <button id="exportAiTaskBtn" type="button" data-variant="primary">应用修改</button>
           </div>
           <div id="aiHandoffStatus" class="ai-handoff-status">
-            先绑定项目里的 <code>slide_state.json</code>，再发送本轮修改请求。这样 AI 改完文件后，当前预览就会自动刷新。
+            默认主路径是 SVG 页面；如需自动刷新，请绑定项目里的兼容 <code>slide_state.json</code>。
           </div>
           <input id="aiPatchFileInput" type="file" accept="application/json,.json" hidden />
         </section>
@@ -1141,7 +1141,7 @@
           <summary>更多工具</summary>
           <div class="advanced-panel__body">
             <div class="selection-empty">
-              这里只放兼容导入、Patch 回流和模板图表复用，平时可以不管。
+              这里只放 SVG 兼容导入、Patch 回流和模板图表复用，平时可以不管。
             </div>
             <div class="ai-handoff-actions">
               <button id="applyAiPatchBtn" type="button">导入 AI Patch</button>
@@ -1189,8 +1189,8 @@
 
       <div id="dropZoneOverlay" class="drop-zone-overlay" hidden>
         <div class="drop-zone-overlay__card">
-          <strong>兼容导入：拖拽 slide_state / design_patch / SVG 到这里</strong>
-          <span>仅在手动回流文件或导入旧资产时使用。日常主流程应优先走“绑定项目预览 -> 发送给 AI -> 自动刷新”。</span>
+          <strong>兼容导入：拖拽 SVG / design_patch / slide_state 到这里</strong>
+          <span>仅在手动回流文件或导入旧资产时使用。日常主流程应优先走 SVG 预览；slide_state 只作为 compat/import/handoff/legacy 入口。</span>
         </div>
       </div>
     </div>

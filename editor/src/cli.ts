@@ -8,6 +8,10 @@ import {
   createProjectSvgArtifacts,
 } from './project_pipeline.js'
 
+// SVG-first editor compat CLI:
+// capture/sync 用于从项目 SVG 生成或维护 compat slide_state；
+// render 用于在 legacy / handoff 场景下从 compat slide_state 回写 SVG。
+
 type CommandName = 'capture-project' | 'render-project' | 'sync-project'
 
 interface CliOptions {
@@ -42,7 +46,7 @@ async function captureProject(options: CliOptions): Promise<void> {
   const statePath = resolve(options.projectPath, options.stateFile)
   await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
 
-  console.log(`[OK] 已从 ${svgFiles.length} 个 SVG 生成 ${relativeDisplayPath(statePath)}`)
+  console.log(`[OK] 已从 ${svgFiles.length} 个 SVG 生成兼容状态 ${relativeDisplayPath(statePath)}`)
 }
 
 async function renderProject(options: CliOptions): Promise<void> {
@@ -57,7 +61,7 @@ async function renderProject(options: CliOptions): Promise<void> {
     await writeFile(resolve(outputDir, artifact.fileName), artifact.content, 'utf8')
   }
 
-  console.log(`[OK] 已从 ${relativeDisplayPath(statePath)} 渲染 ${artifacts.length} 个 SVG 到 ${relativeDisplayPath(outputDir)}`)
+  console.log(`[OK] 已从兼容状态 ${relativeDisplayPath(statePath)} 渲染 ${artifacts.length} 个 SVG 到 ${relativeDisplayPath(outputDir)}`)
   await warnStaleSvgFiles(outputDir, artifacts.map(artifact => artifact.fileName))
 }
 
@@ -73,7 +77,7 @@ async function syncProject(options: CliOptions): Promise<void> {
     await writeFile(resolve(outputDir, artifact.fileName), artifact.content, 'utf8')
   }
 
-  console.log(`[OK] 已从 ${svgFiles.length} 个 SVG 同步生成 ${relativeDisplayPath(statePath)} 并回写 ${artifacts.length} 个 SVG 到 ${relativeDisplayPath(outputDir)}`)
+  console.log(`[OK] 已从 ${svgFiles.length} 个 SVG 同步生成兼容状态 ${relativeDisplayPath(statePath)}，并回写 ${artifacts.length} 个 SVG 到 ${relativeDisplayPath(outputDir)}`)
   await warnStaleSvgFiles(outputDir, artifacts.map(artifact => artifact.fileName))
 }
 
@@ -195,10 +199,19 @@ function isHelpFlag(value: string): boolean {
 }
 
 function printUsage(): void {
-  console.log(`用法:
+  console.log(`SVG-first Design Editor compat bridge
+
+默认主路径是项目里的 SVG 页面；以下命令仅用于 compat/import/handoff/legacy tooling。
+
+用法:
   bun run src/cli.ts capture-project <project_path> [--source-dir svg_output] [--state-file slide_state.json]
   bun run src/cli.ts render-project <project_path> [--output-dir svg_output] [--state-file slide_state.json]
-  bun run src/cli.ts sync-project <project_path> [--source-dir svg_output] [--output-dir svg_output] [--state-file slide_state.json]`)
+  bun run src/cli.ts sync-project <project_path> [--source-dir svg_output] [--output-dir svg_output] [--state-file slide_state.json]
+
+说明:
+  capture-project  从 SVG 页面生成 compat slide_state.json
+  render-project   从 compat slide_state.json 回写 SVG 页面
+  sync-project     用 SVG 页面更新 compat state，并同时回写规范化 SVG`)
 }
 
 function relativeDisplayPath(path: string): string {

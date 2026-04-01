@@ -1,7 +1,7 @@
-// state_to_svg.ts — 将 slide_state 转为符合 ppt-master 约束的 SVG
+// state_to_svg.ts — 将 compat slide_state 转为符合 ppt-master 约束的 SVG
 //
 // 文本元素通过 Pretext layoutWithLines() 精确断行
-// 输出的 SVG 直接兼容 finalize_svg.py → svg_to_pptx.py
+// 输出的 SVG 可供 editor / bridge compat render，并兼容 finalize_svg.py → svg_to_pptx.py
 
 import type {
   SlideState, Slide, Element, TextElement, RectElement,
@@ -56,7 +56,7 @@ export function slideToSvg(slide: Slide, canvas: { width: number; height: number
 }
 
 /**
- * 将完整的 SlideState 转为 SVG 字符串数组（每个 slide 一个 SVG）
+ * 将完整的兼容 SlideState 转为 SVG 字符串数组（每个 slide 一个 SVG）
  */
 export function stateToSvgs(state: SlideState): string[] {
   return state.slides.map(slide => slideToSvg(slide, state.canvas))

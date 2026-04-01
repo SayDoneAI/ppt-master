@@ -1,4 +1,4 @@
-# PPT Master - AI 驱动的多格式 SVG 内容生成系统
+# ppt-master - AI-native Multi-Page SVG Design System
 
 [![Version](https://img.shields.io/badge/version-v1.1.0-blue.svg)](https://github.com/hugohe3/ppt-master/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -6,7 +6,18 @@
 
 [English](./README_EN.md) | 中文
 
-一个基于 AI 的智能视觉内容生成系统，通过多角色协作，将源文档转化为高质量的 SVG 内容，**支持演示文稿、社交媒体、营销海报等多种格式**。
+这是一个 AI-native 的 multi-page SVG design system，通过多角色协作把源文档转成一组高质量视觉页。核心抽象是：**一个项目 = 一组视觉页；一页 = 一张独立画布**。海报是 1 页 SVG，小红书 / Story / 图文 / 报告是 N 页 SVG；PPT / PPTX 只是这组视觉页的一种消费形式。
+
+> ℹ️ **说明**：`ppt-master` 是当前仓库名 / 历史命名，不是必须继续沿用的产品定义；当前产品心智应理解为 multi-page SVG design system。
+
+> ℹ️ **边界**：外部本地 agent / skill / command 只是围绕仓库使用的编排层或调用方式，不属于本仓库产品命名。
+
+## 核心产品模型
+
+- **主产物**：SVG page set；PNG / PPTX 都只是导出目标
+- **页面模型**：海报 = 1 页 SVG；小红书 / Story / 图文 = N 页 SVG；PPT = N 页视觉稿的一种消费形式
+- **主路径**：源内容 → 多页 SVG design deliverable → 按需导出
+- **Compat path**：`slide_state`、editor、handoff、bridge 仅服务 editor / handoff / legacy project，不是主模型
 
 > 🎴 **在线示例**：[GitHub Pages 在线预览](https://hugohe3.github.io/ppt-master/) - 查看实际生成效果
 
@@ -72,11 +83,11 @@ pip install -r requirements.txt
 在 AI 编辑器中打开聊天面板，直接描述你想创作的内容：
 
 ```
-用户：我有一份关于 Q3 季度业绩的报告，需要制作成 PPT
+用户：我有一篇关于储蓄险的文章，想做成一组小红书图文，后面如果需要再兼容导出 PPTX
 
 AI（Strategist 角色）：好的，在开始之前我需要完成八项确认...
-   1. 画布格式：[建议] PPT 16:9
-   2. 页数范围：[建议] 8-10 页
+   1. 画布格式：[建议] 小红书
+   2. 页数范围：[建议] 6-8 页
    ...
 ```
 
@@ -88,7 +99,7 @@ AI（Strategist 角色）：好的，在开始之前我需要完成八项确认.
 
 ### 5. 启动浏览器编辑器（实验性，可选）
 
-如果你想在 AI 生成之后直接拖拽、改文案、导入/导出 `slide_state.json` 或 SVG，可以启动仓库内置的浏览器编辑器：
+如果你想在 AI 生成之后继续微调 visual design、拖拽元素、改文案，或在兼容链路里导入/导出 SVG / `slide_state.json`，可以启动仓库内置的浏览器编辑器：
 
 ```bash
 cd editor
@@ -107,42 +118,42 @@ npm run dev
 默认访问地址：`http://127.0.0.1:5173/`
 
 当前编辑器能力包括：
-- 基于 `slide_state.json` 的多页 SVG 渲染
+- 面向 design / poster / social visual 的多页 SVG 画布预览与编辑
 - 文本双击编辑，使用 Pretext 实时断行与溢出检测
 - 元素选中、拖拽移动、手柄缩放、属性面板编辑
 - 基于 diff patch 的撤销 / 重做与快捷键（`⌘/Ctrl+Z`、`⇧⌘/Ctrl+Z` / `Ctrl+Y`、`⌘/Ctrl+S`、`⌘/Ctrl+Enter`）
-- 追加导入模板页 / 图表页：可直接选择 `templates/layouts/*.svg`、`templates/charts/*.svg` 或模板 `slide_state.json`
-- 导入/导出 SVG、JSON，并记录 `design_patch.json` 风格 patch
+- 追加导入模板页 / 图表页：可直接选择 `templates/layouts/*.svg`、`templates/charts/*.svg`，也兼容导入模板 `slide_state.json`
+- 导入/导出 SVG、兼容状态 JSON，并记录 `design_patch.json` 风格 patch
 - 针对当前选中元素或整页导出本地 AI handoff bundle，供 Claude Code / Codex skill/command 消费，并保留 `design_patch` 回流能力
 
-项目工作流现已提供正式 bridge，可把现有项目的 `svg_output/` 收敛为项目根目录的 `slide_state.json`，并继续回写兼容的 SVG：
+如果你接的是旧项目，或需要把浏览器编辑器绑定到项目兼容 state，可使用 bridge 在 `svg_output/` 与 `slide_state.json` 之间收敛：
 
 ```bash
 python3 tools/slide_state_bridge.py sync <项目路径>
 ```
 
-如需直接在浏览器中加载某个项目的 state，可访问：
+如需直接在浏览器中加载某个项目的兼容 state，可访问：
 
 ```text
 http://127.0.0.1:5173/?state=/@fs/<项目绝对路径>/slide_state.json
 ```
 
-> 💡 **当前阶段**：`slide_state + 编辑器 + 本地 AI handoff` 主线已基本收口。`Executor_General` 直接产出 `slide_state.json` 后可由编辑器继续编辑，再通过 `render` 回写兼容 SVG；咨询类 Executor 仍走“先 SVG、后 sync bridge”的兼容路径。
+> 💡 **当前阶段**：默认工作流仍以 SVG 页面与 design deliverables 为中心；`slide_state + 编辑器 + 本地 AI handoff` 更适合作为浏览器编辑、外部本地 agent 协作和旧项目桥接的兼容链路，而不是仓库唯一主路径。
 
-### 6. 使用本地 AI Handoff（给 Claude Code / Codex，本地 skill/command 路径）
+### 6. 使用本地 AI Handoff（浏览器 design 编辑器的本地兼容链路）
 
 如果你想把当前选中元素或整页交给 Claude Code / Codex 继续修改：
 
 1. 在右侧 `AI 协作` 面板输入自然语言指令
 2. 点击 `导出 AI Handoff`
-3. 如果当前编辑器已绑定项目里的 `slide_state.json`，会优先直接写入：
+3. 如果当前编辑器已绑定项目里的兼容 state `slide_state.json`，会优先直接写入：
    - `<项目>/.cache/ai_handoff/design_patch.ai-request.json`
    - `<项目>/.cache/ai_handoff/design_patch.ai-handoff.md`
 4. 如果当前未绑定项目，才会回退到浏览器下载 `design_patch.ai-request.json`，并在面板下方生成 `design_patch.ai-handoff.md` 预览，供你继续下载或复制。
 5. 官方路径：将 `.cache/ai_handoff/` 里的 handoff 文件直接交给本地 skill / command：
    - Claude Code: [`.claude/commands/ppt-edit.md`](./.claude/commands/ppt-edit.md)
    - Codex / 项目内 agent: [`.agent/skills/ppt_master_ai_edit/SKILL.md`](./.agent/skills/ppt_master_ai_edit/SKILL.md)
-6. 这条路径会由 Claude Code / Codex 在本地仓库里直接修改 `slide_state.json`，然后执行 `render / validate`；浏览器编辑器和仓库本身都不提供浏览器直连或服务端 API。
+6. 这条路径由外部本地 agent / skill / command 在本地仓库里直接修改 `slide_state.json`，然后执行 `render / validate`。浏览器编辑器和仓库本身都不提供浏览器直连或服务端 API。
 7. 兼容路径：如果你当前使用的是只返回 patch JSON 的会话，也可以把 AI 返回的 `design_patch.json` 或同 schema JSON：
    - 直接拖回浏览器编辑器，或
    - 点击右侧 `AI 协作` 面板中的 `应用 AI Patch`
@@ -209,17 +220,17 @@ python3 tools/project_manager.py validate <项目路径>
 [Image_Generator] 图片生成师（当选择 AI 生成时）
     ↓
 [Executor] 执行师 - 分阶段生成
-    ├── Executor_General：先生成 `slide_state.json` → `slide_state_bridge.py render` → svg_output/
-    ├── Executor_Consultant / Top：先生成 SVG 页面 → svg_output/ → `slide_state_bridge.py sync`
+    ├── 所有 Executor：共用同一 SVG-first 协议，先生成 `svg_output/*.svg`
+    ├── 如需兼容编辑器 / handoff / legacy project，再用 `slide_state_bridge.py sync` 补齐 `slide_state.json`
     └── 逻辑构建阶段：生成完整讲稿 → notes/total.md
     ↓
-[slide_state bridge]
-    ├── `render`：从项目级 `slide_state.json` 回写兼容 `svg_output/`
-    └── `sync`：从现有 `svg_output/` 收敛 `slide_state.json` 并回写兼容 SVG
+[兼容 bridge（按需）]
+    ├── `render`：当项目已有 `slide_state.json` 时，回写兼容 `svg_output/`
+    └── `sync`：当项目已有 `svg_output/` 时，补齐 `slide_state.json` 供编辑器 / handoff 使用
     ↓
-[后处理] → total_md_split.py（拆分讲稿）→ finalize_svg.py → svg_to_pptx.py
+[后处理] → total_md_split.py（拆分讲稿）→ finalize_svg.py → [如需 PPTX] svg_to_pptx.py
     ↓
-输出: SVG + PPTX（自动嵌入讲稿）
+输出: SVG（主）+ PNG / PPTX（按需兼容输出）
     ↓
 [Optimizer_CRAP] 优化师（可选，初版后不满意再用）
     ↓
@@ -241,16 +252,16 @@ python3 tools/project_manager.py init <项目名> --format ppt169
 # PDF 转 Markdown
 python3 tools/pdf_to_md.py <PDF文件>
 
-# Executor_General 已直接生成 slide_state.json，仅从 state 回写兼容 SVG
+# 当项目已绑定浏览器编辑器兼容 state 时，从 `slide_state.json` 回写兼容 SVG
 python3 tools/slide_state_bridge.py render <项目路径>
 
-# 现有 SVG-first 路径：将 svg_output 收敛为 slide_state.json，并回写兼容 SVG
+# 如需编辑器 / handoff / 旧路径兼容，为 `svg_output/` 补齐 `slide_state.json`
 python3 tools/slide_state_bridge.py sync <项目路径>
 
 # 后处理 SVG
 python3 tools/finalize_svg.py <项目路径>
 
-# 导出 PPTX
+# 如需兼容导出 PPTX
 python3 tools/svg_to_pptx.py <项目路径> -s final
 
 # 预览模板与示例总览
@@ -269,8 +280,8 @@ cd editor && bun run dev
 
 ```
 ppt-master/
-├── .agent/         # 项目内 skills / workflows（如 generate-ppt、preview）
-├── editor/         # 浏览器编辑器（Pretext + slide_state + Vite）
+├── .agent/         # 项目内 skills / workflows（供外部 agent / handoff 使用）
+├── editor/         # 浏览器 design 编辑器（Pretext + Vite，兼容 slide_state）
 ├── roles/          # AI 角色定义（6 个专业角色）
 ├── docs/           # 文档中心（教程、设计指南、格式规范等）
 ├── templates/      # 模板库（图表模板 + 640+ 图标）
@@ -287,7 +298,7 @@ ppt-master/
 <summary><b>Q: 生成的 SVG 文件如何使用？</b></summary>
 
 - 直接在浏览器中打开查看
-- 使用 `svg_to_pptx.py` 导出为 PowerPoint（需在 PPT 中"转换为形状"以编辑，要求 Office 2016+）
+- 使用 `svg_to_pptx.py` 兼容导出为 PowerPoint（需在 PPT 中"转换为形状"以编辑，要求 Office 2016+）
 - 嵌入到 HTML 页面或使用设计工具编辑
 
 </details>
@@ -295,9 +306,10 @@ ppt-master/
 <details>
 <summary><b>Q: 三种执行师有什么区别？</b></summary>
 
-- **Executor_General**: 通用场景，灵活布局，默认先产出 `slide_state.json`
+- **Executor_General**: 通用场景，灵活布局，最适合 poster / social visual / 多页 design 页面
 - **Executor_Consultant**: 一般咨询，数据可视化
 - **Executor_Consultant_Top**: 顶级咨询（MBB 级），5 大核心技巧
+- 三者的产出协议相同：都先生成 `svg_output/*.svg`；如需编辑器 / handoff 兼容，再通过 bridge 补齐 `slide_state.json`
 
 </details>
 
@@ -359,4 +371,4 @@ ppt-master/
 
 Made with ❤️ by Hugo He
 
-[⬆ 回到顶部](#ppt-master---ai-驱动的多格式-svg-内容生成系统)
+[⬆ 回到顶部](#ppt-master---ai-native-multi-page-svg-design-system)

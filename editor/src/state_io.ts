@@ -1,3 +1,6 @@
+// state_io.ts — SVG-first 编辑器的导入/导出辅助
+// 默认主路径是 SVG；slide_state JSON 仅作为 compat import/export 载体
+
 import type { SlideState } from './slide_state.js'
 import { stateToSvgs } from './state_to_svg.js'
 import { svgsToState } from './svg_to_state.js'
@@ -28,7 +31,7 @@ export function parseSlideStateJson(rawJson: string): SlideState {
   try {
     parsed = JSON.parse(rawJson)
   } catch (error) {
-    throw new Error(`slide_state JSON 解析失败: ${(error as Error).message}`)
+    throw new Error(`兼容 slide_state JSON 解析失败: ${(error as Error).message}`)
   }
 
   return ensureSlideState(parsed)
@@ -36,7 +39,7 @@ export function parseSlideStateJson(rawJson: string): SlideState {
 
 export function ensureSlideState(value: unknown): SlideState {
   if (!isSlideState(value)) {
-    throw new Error('slide_state JSON 结构无效：需要包含 canvas.width/canvas.height 和非空 slides[]')
+    throw new Error('兼容 slide_state JSON 结构无效：需要包含 canvas.width/canvas.height 和非空 slides[]')
   }
   return value
 }

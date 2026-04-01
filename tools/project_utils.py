@@ -259,13 +259,13 @@ def validate_project_structure(project_path: str, verbose: bool = False) -> Tupl
             msg += "\n" + ErrorHelper.format_error_message('missing_spec')
         warnings.append(msg)
 
-    # 检查 svg_output 目录 / state-first 项目
+    # 检查 svg_output 目录（正式主产物）；slide_state 仅作 compat / bridge / handoff state
     svg_output = project_path / 'svg_output'
     slide_state_file = project_path / 'slide_state.json'
     has_slide_state = slide_state_file.exists()
     if not svg_output.exists():
         if has_slide_state:
-            msg = "检测到 slide_state.json，但尚未渲染 svg_output/；请运行 `python3 tools/slide_state_bridge.py render <项目路径>`"
+            msg = "检测到 slide_state.json（compat / bridge / handoff state），但尚未渲染 svg_output/；请运行 `python3 tools/slide_state_bridge.py render <项目路径>`"
             if use_helper and verbose:
                 msg += "\n" + ErrorHelper.format_error_message('state_without_svg_output')
             warnings.append(msg)
@@ -282,7 +282,7 @@ def validate_project_structure(project_path: str, verbose: bool = False) -> Tupl
         svg_files = list(svg_output.glob('*.svg'))
         if not svg_files:
             if has_slide_state:
-                msg = "svg_output 目录为空，但已检测到 slide_state.json；请运行 `python3 tools/slide_state_bridge.py render <项目路径>`"
+                msg = "svg_output 目录为空，但已检测到 slide_state.json（compat / bridge / handoff state）；请运行 `python3 tools/slide_state_bridge.py render <项目路径>`"
                 if use_helper and verbose:
                     msg += "\n" + ErrorHelper.format_error_message('state_without_svg_output')
             else:
@@ -378,7 +378,7 @@ def find_all_projects(base_dir: str) -> List[Path]:
     projects = []
     for item in base_path.iterdir():
         if item.is_dir() and not item.name.startswith('.'):
-            # 检查是否是有效的项目目录（包含 svg_output、slide_state 或设计规范）
+            # 检查是否是有效的项目目录（包含 svg_output、compat slide_state 或设计规范）
             has_svg_output = (item / 'svg_output').exists()
             has_slide_state = (item / 'slide_state.json').exists()
             has_spec = any((item / f).exists() for f in

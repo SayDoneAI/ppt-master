@@ -96,7 +96,7 @@ class ProjectManager:
 
         # 创建目录结构
         project_path.mkdir(parents=True, exist_ok=True)
-        (project_path / 'svg_output').mkdir(exist_ok=True)   # 原始版本（带占位符）
+        (project_path / 'svg_output').mkdir(exist_ok=True)   # 正式 SVG 第一产物
         (project_path / 'svg_final').mkdir(exist_ok=True)    # 最终版本（后处理完成）
         (project_path / 'images').mkdir(exist_ok=True)       # 图片资源
         (project_path / 'notes').mkdir(exist_ok=True)        # 演讲备注
@@ -108,8 +108,8 @@ class ProjectManager:
                 f"- 画布格式: {normalized_format}\n"
                 f"- 创建日期: {date_str}\n\n"
                 "## 目录\n\n"
-                "- `slide_state.json`: 通用执行师的原生第一产物（可选，state-first 路径）\n"
-                "- `svg_output/`: 原始 SVG 输出\n"
+                "- `svg_output/`: 正式 SVG 输出（Executor 默认第一产物）\n"
+                "- `slide_state.json`: 编辑器 / handoff / bridge 的兼容状态（按需通过 sync 生成）\n"
                 "- `svg_final/`: 后处理后的 SVG\n"
                 "- `images/`: 图片资源\n"
                 "- `notes/`: 演讲备注\n"
@@ -210,9 +210,8 @@ def main():
             print(f"[OK] 项目已创建: {project_path}")
             print("\n下一步:")
             print("1. 生成并保存 设计规范与内容大纲.md (请参考 templates/design_spec_reference.md)")
-            print("2. 选择执行路径：")
-            print("   - 通用灵活（state-first）：生成 slide_state.json，再运行 python3 tools/slide_state_bridge.py render <项目路径>")
-            print("   - 咨询风格（兼容路径）：将 SVG 文件放入 svg_output/ 目录，再运行 python3 tools/slide_state_bridge.py sync <项目路径>")
+            print("2. 生成 `svg_output/*.svg` 作为正式视觉稿")
+            print("3. 如需编辑器 / handoff / 旧路径兼容，再运行 python3 tools/slide_state_bridge.py sync <项目路径> 补齐 `slide_state.json`")
         except Exception as e:
             print(f"[ERROR] 创建失败: {e}")
             sys.exit(1)

@@ -1,3 +1,5 @@
+// project_pipeline.ts — SVG-first 项目文件与 compat state 之间的最小桥接辅助
+
 import type { Slide, SlideState } from './slide_state.js'
 import { stateToSvgs } from './state_to_svg.js'
 import { svgsToState } from './svg_to_state.js'

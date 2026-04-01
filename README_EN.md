@@ -1,4 +1,4 @@
-# PPT Master - AI-Powered Multi-Format SVG Content Generation System
+# ppt-master - AI-native Multi-Page SVG Design System
 
 [![Version](https://img.shields.io/badge/version-v1.1.0-blue.svg)](./VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -6,7 +6,18 @@
 
 English | [中文](./README.md)
 
-An AI-powered intelligent visual content generation system that transforms source documents into high-quality SVG content through multi-role collaboration, **supporting presentations, social media, marketing posters, and various other formats**.
+This repo should be understood as an AI-native multi-page SVG design system. Through multi-role collaboration, it turns source material into a set of high-quality visual pages. The core abstraction is: **one project = one set of visual pages; one page = one independent canvas**. A poster is a 1-page SVG, while Xiaohongshu / Story / article-style outputs are N-page SVG sets; PPT / PPTX is only one downstream consumption form for the same page set.
+
+> ℹ️ **Note**: `ppt-master` is the current repository name and a historical name, not the product definition that must continue unchanged. The intended product mental model is a multi-page SVG design system.
+
+> ℹ️ **Boundary**: External local agents / skills / commands are orchestration layers used around this repo. They are not product names of this repository.
+
+## Core Product Model
+
+- **Primary artifact**: an SVG page set; PNG / PPTX are export targets only
+- **Page model**: poster = 1-page SVG; Xiaohongshu / Story / article-style deliverables = N-page SVG sets; PPT = one consumption form of those visual pages
+- **Primary path**: source content -> multi-page SVG design deliverable -> optional exports
+- **Compatibility path**: `slide_state`, editor, handoff, and bridge exist for editor / handoff / legacy-project compatibility, not as the main product model
 
 > 🎴 **Online Examples**: [GitHub Pages Online Preview](https://hugohe3.github.io/ppt-master/) - View actual generated results
 
@@ -72,11 +83,11 @@ Recommended AI editors:
 Open the AI chat panel in your editor and describe what content you want to create:
 
 ```
-User: I have a Q3 quarterly report that needs to be made into a PPT
+User: I have an article about savings insurance and want to turn it into a Xiaohongshu carousel first, then optionally export a PPTX-compatible deck later
 
 AI (Strategist role): Sure, before we begin I need to complete eight confirmations...
-   1. Canvas format: [Recommended] PPT 16:9
-   2. Page count: [Recommended] 8-10 pages
+   1. Canvas format: [Recommended] Xiaohongshu
+   2. Page count: [Recommended] 6-8 pages
    ...
 ```
 
@@ -88,7 +99,7 @@ AI (Strategist role): Sure, before we begin I need to complete eight confirmatio
 
 ### 5. Launch the Browser Editor (Experimental, Optional)
 
-If you want to tweak layouts after AI generation, drag elements directly, edit text, or import/export `slide_state.json` and SVG files, start the built-in browser editor:
+If you want to keep refining the visual design after AI generation, drag elements directly, edit text, or use the compatibility path to import/export SVG and `slide_state.json`, start the built-in browser editor:
 
 ```bash
 cd editor
@@ -107,42 +118,42 @@ npm run dev
 Default URL: `http://127.0.0.1:5173/`
 
 Current editor capabilities:
-- Multi-slide SVG rendering driven by `slide_state.json`
+- Multi-page SVG canvas preview and editing for design / poster / social visual work
 - Double-click text editing with Pretext line breaking and overflow detection
 - Element selection, drag move, resize handles, and property-panel editing
 - Diff-based undo / redo and keyboard shortcuts (`⌘/Ctrl+Z`, `⇧⌘/Ctrl+Z` / `Ctrl+Y`, `⌘/Ctrl+S`, `⌘/Ctrl+Enter`)
-- Append template / chart slides by selecting `templates/layouts/*.svg`, `templates/charts/*.svg`, or a template `slide_state.json`
-- SVG / JSON import-export plus `design_patch.json`-style patch recording
+- Append template / chart slides by selecting `templates/layouts/*.svg`, `templates/charts/*.svg`, or a compatible template `slide_state.json`
+- SVG / compatibility-state JSON import-export plus `design_patch.json`-style patch recording
 - Local AI handoff bundle export for the current element or slide, intended for Claude Code / Codex skill-command flows, with `design_patch` fallback roundtrip support
 
-The repository now ships with a formal bridge that turns an existing project's `svg_output/` into a project-level `slide_state.json`, then writes compatible SVG files back for post-processing:
+If you are working with a legacy project or want to bind the browser editor to a project compatibility state, use the bridge to converge `svg_output/` and `slide_state.json`:
 
 ```bash
 python3 tools/slide_state_bridge.py sync <project_path>
 ```
 
-To open a project's state directly in the browser editor, visit:
+To open a project's compatibility state directly in the browser editor, visit:
 
 ```text
 http://127.0.0.1:5173/?state=/@fs/<absolute_project_path>/slide_state.json
 ```
 
-> 💡 **Current status**: the `slide_state + editor + local AI handoff` product line is now largely closed. `Executor_General` can produce `slide_state.json` natively, the editor can continue editing it, and `render` writes compatible SVG back for the existing export pipeline. The consulting Executors still follow the legacy “SVG first, then sync bridge” compatibility path.
+> 💡 **Current status**: the default workflow is still centered on SVG pages and design deliverables. `slide_state + editor + local AI handoff` is best understood as a browser-editing, external-agent, and legacy-project compatibility path, not the only primary path through the repo.
 
-### 6. Local AI Handoff (For Claude Code / Codex Local Skill/Command Flows)
+### 6. Local AI Handoff (Browser design editor compatibility flow)
 
 If you want Claude Code or Codex to continue editing the current element or slide:
 
 1. Enter a natural-language instruction in the `AI 协作` panel inside the editor
 2. Click `导出 AI Handoff`
-3. If the editor is currently bound to a project `slide_state.json`, it will write directly to:
+3. If the editor is currently bound to a project's compatibility state `slide_state.json`, it will write directly to:
    - `<project>/.cache/ai_handoff/design_patch.ai-request.json`
    - `<project>/.cache/ai_handoff/design_patch.ai-handoff.md`
 4. If the editor is not bound to a project, it falls back to downloading `design_patch.ai-request.json` and shows a preview of `design_patch.ai-handoff.md` so you can still download or copy the note manually.
 5. Primary path: hand the files from `.cache/ai_handoff/` to a local skill / command:
    - Claude Code: [`.claude/commands/ppt-edit.md`](./.claude/commands/ppt-edit.md)
    - Codex / project-local agent: [`.agent/skills/ppt_master_ai_edit/SKILL.md`](./.agent/skills/ppt_master_ai_edit/SKILL.md)
-6. In this primary path, Claude Code / Codex edits `slide_state.json` directly inside the local repo and then runs `render / validate`; neither the browser editor nor the repo exposes a browser-side or service-side model API.
+6. In this compatibility path, an external local agent / skill / command edits `slide_state.json` directly inside the local repo and then runs `render / validate`; neither the browser editor nor the repo exposes a browser-side or service-side model API.
 7. Compatibility path: if your session only returns patch JSON, you can still take `design_patch.json` or any JSON following the same schema and:
    - drag it back into the browser editor, or
    - click `应用 AI Patch` in the `AI 协作` panel
@@ -209,17 +220,17 @@ User Input (PDF/URL/Markdown)
 [Image_Generator] (When AI generation is selected)
     ↓
 [Executor] - Two-Phase Generation
-    ├── Executor_General: Generate `slide_state.json` first → `slide_state_bridge.py render` → svg_output/
-    ├── Executor_Consultant / Top: Generate SVG pages first → svg_output/ → `slide_state_bridge.py sync`
+    ├── All Executors: share the same SVG-first protocol and generate `svg_output/*.svg` first
+    ├── If editor / handoff / legacy-project compatibility is needed, use `slide_state_bridge.py sync` to derive `slide_state.json`
     └── Logic Construction Phase: Generate complete script → notes/total.md
     ↓
-[slide_state bridge]
-    ├── `render`: materialize compatible `svg_output/` from project-level `slide_state.json`
-    └── `sync`: capture `slide_state.json` from existing `svg_output/` and write compatible SVG back
+[compatibility bridge (as needed)]
+    ├── `render`: when a project already has `slide_state.json`, materialize compatible `svg_output/`
+    └── `sync`: when a project already has `svg_output/`, derive `slide_state.json` for editor / handoff use
     ↓
-[Post-processing] → total_md_split.py (split notes) → finalize_svg.py → svg_to_pptx.py
+[Post-processing] → total_md_split.py (split notes) → finalize_svg.py → [if PPTX is needed] svg_to_pptx.py
     ↓
-Output: SVG + PPTX (auto-embeds notes)
+Output: SVG (primary) + PNG / PPTX (compatibility exports as needed)
     ↓
 [Optimizer_CRAP] (Optional, only if the first full draft is unsatisfactory)
     ↓
@@ -241,16 +252,16 @@ python3 tools/project_manager.py init <project_name> --format ppt169
 # PDF to Markdown
 python3 tools/pdf_to_md.py <PDF_file>
 
-# Executor_General already produced slide_state.json; render compatible SVG from state
+# When a project already uses the browser-editor compatibility state, render compatible SVG from `slide_state.json`
 python3 tools/slide_state_bridge.py render <project_path>
 
-# Legacy SVG-first path: materialize slide_state.json from svg_output/ and write compatible SVG back
+# If editor / handoff / legacy compatibility is needed, derive `slide_state.json` from `svg_output/`
 python3 tools/slide_state_bridge.py sync <project_path>
 
 # Post-process SVG
 python3 tools/finalize_svg.py <project_path>
 
-# Export PPTX
+# Export PPTX when compatibility output is needed
 python3 tools/svg_to_pptx.py <project_path> -s final
 
 # Preview templates and examples overview
@@ -269,8 +280,8 @@ cd editor && bun run dev
 
 ```
 ppt-master/
-├── .agent/         # Project-local skills / workflows (for example generate-ppt, preview)
-├── editor/         # Browser editor (Pretext + slide_state + Vite)
+├── .agent/         # Project-local skills / workflows used by external agents / handoff flows
+├── editor/         # Browser design editor (Pretext + Vite, with slide_state compatibility)
 ├── roles/          # AI role definitions (6 professional roles)
 ├── docs/           # Documentation center (tutorials, design guides, format specs)
 ├── templates/      # Template library (chart templates + 640+ icons)
@@ -287,7 +298,7 @@ ppt-master/
 <summary><b>Q: How to use generated SVG files?</b></summary>
 
 - Open directly in browser to view
-- Export to PowerPoint using `svg_to_pptx.py` (Note: Requires "Convert to Shape" in PPT for editing, Office 2016+ required)
+- Export to PowerPoint with compatibility via `svg_to_pptx.py` (Note: requires "Convert to Shape" in PPT for editing, Office 2016+ required)
 - Embed in HTML pages or edit with design tools
 
 </details>
@@ -295,9 +306,10 @@ ppt-master/
 <details>
 <summary><b>Q: What's the difference between the three Executors?</b></summary>
 
-- **Executor_General**: General scenarios, flexible layout, now state-first by default
+- **Executor_General**: General scenarios, flexible layout, best suited for poster / social visual / multi-page design work
 - **Executor_Consultant**: General consulting, data visualization
 - **Executor_Consultant_Top**: Top consulting (MBB level), 5 core techniques
+- All three share the same output protocol: generate `svg_output/*.svg` first, then use the bridge only when `slide_state.json` is needed for editor / handoff compatibility
 
 </details>
 
@@ -359,4 +371,4 @@ If this project helps you, please give it a ⭐ Star!
 
 Made with ❤️ by Hugo He
 
-[⬆ Back to Top](#ppt-master---ai-powered-multi-format-svg-content-generation-system)
+[⬆ Back to Top](#ppt-master---ai-native-multi-page-svg-design-system)

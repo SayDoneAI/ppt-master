@@ -1,14 +1,14 @@
-// slide_state.ts — ppt-master 编辑器的结构化真相源类型定义
-// 所有元素类型覆盖现有 SVG 中出现的实际结构
+// slide_state.ts — SVG-first 编辑器的兼容状态类型定义
+// 该结构用于 import / handoff / legacy bridge，不替代项目主产物 SVG page set
 
 // ============================================================
 // Canvas & Slide
 // ============================================================
 
 export interface SlideState {
-  /** 画布尺寸，对应 SVG viewBox */
+  /** 兼容状态里的画布尺寸，对应 SVG viewBox */
   canvas: Canvas
-  /** 幻灯片数组 */
+  /** 兼容状态里的页面数组 */
   slides: Slide[]
 }
 
@@ -19,7 +19,7 @@ export interface Canvas {
 
 export interface Slide {
   id: string
-  /** 幻灯片内的元素，按 z-order 排列（后面的元素在上层） */
+  /** 页面内的元素，按 z-order 排列（后面的元素在上层） */
   elements: Element[]
   /** 可选背景色 */
   background?: string
@@ -226,9 +226,9 @@ export type AiCommandScope = 'selected-element' | 'current-slide'
 export interface AiCommand {
   /** 指令目标范围：围绕当前选中元素或当前页面 */
   scope: AiCommandScope
-  /** 发送指令的幻灯片索引 */
+  /** 发送指令的页面索引 */
   slideIndex: number
-  /** 发送指令的幻灯片 ID */
+  /** 发送指令的页面 ID */
   slideId: string
   /** 选中元素的 ID（null 表示页面级指令） */
   elementId: string | null

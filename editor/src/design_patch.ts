@@ -139,7 +139,7 @@ export function createAiCommandPromptDownload(
   return {
     fileName: 'design_patch.ai-handoff.md',
     mimeType: 'text/plain;charset=utf-8',
-    content: `# PPT Master Local AI Handoff
+    content: `# Design Editor Local AI Handoff
 
 ## 请求摘要
 - 作用范围: ${scopeLabel}
@@ -149,13 +149,13 @@ export function createAiCommandPromptDownload(
 - 指令: ${aiCommand.instruction}
 
 ## 约定文件
-- 状态文件: \`${statePath}\`
+- compat state 文件: \`${statePath}\`
 - 机器可读 handoff JSON: \`${requestPath}\`
 - 执行说明: \`design_patch.ai-handoff.md\`（当前文件）
 
 ## 给 Claude Code / Codex 的本地执行要求
 1. 在本地仓库中读取 \`${requestPath}\`，提取 \`aiCommand\` 与已有 \`operations\`。
-2. 以 \`${statePath}\` 为唯一真相源修改内容，不要直接改导出的 SVG。
+2. 项目主产物 / 主预览仍以 SVG 页面为准；\`${statePath}\` 仅作为本地 bridge / handoff 的 compat state，修改后通过 bridge 回写 SVG，不要直接改导出的 SVG。
 3. 优先围绕 \`${elementLabel}\` 与当前页上下文完成指令；如 scope 为页面级，可重排当前页元素。
 4. 修改完成后运行:
    - \`python3 tools/slide_state_bridge.py render ${projectPath}\`
@@ -166,6 +166,7 @@ export function createAiCommandPromptDownload(
 
 ## 说明
 - 这是给 Claude Code / Codex 本地 skill / command 使用的 handoff，不是浏览器直连或服务端 API 协议。
+- 项目主产物 / 主预览仍是 SVG 页面；\`${statePath}\` 只是本地 bridge / handoff 使用的 compat state，用于修改后再 render 回 SVG。
 - 浏览器编辑器只负责导出 / 导入文件；真正的项目修改、render、validate 都在本地仓库里完成。
 - 推荐将这组 handoff 文件保存在 \`${projectPath}/.cache/ai_handoff/\`；如果当前文件还在浏览器下载目录，请先移动到项目目录再执行。
 - 如果当前会话只打算返回 patch JSON 而不直接改项目，也可输出同 schema 的 \`design_patch.json\` 供编辑器回流应用。

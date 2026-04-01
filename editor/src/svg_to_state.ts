@@ -1,6 +1,6 @@
-// svg_to_state.ts — 将现有 SVG 文件解析为 slide_state
+// svg_to_state.ts — 将现有 SVG 文件解析为 compat slide_state
 //
-// 兼容 ppt-master 现有的 15 个示例项目
+// 兼容 ppt-master 现有的示例项目与 legacy handoff 输入
 // 处理真实 SVG 中的各种写法：多个 <text> 模拟多行、<path> 圆角矩形、
 // <g> 分组嵌套、linearGradient/filter defs 等
 
@@ -95,7 +95,7 @@ export function svgToSlide(
 }
 
 /**
- * 解析多个 SVG 字符串为完整的 SlideState
+ * 解析多个 SVG 字符串为完整的 compat SlideState
  */
 export function svgsToState(
   svgStrings: string[],

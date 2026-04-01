@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-PPT Master - slide_state 项目桥接工具
+Design Editor - SVG-first compat bridge tool
 
 用途：
-1. 将现有项目的 svg_output/ 或 svg_final/ 收敛为 slide_state.json
-2. 从 slide_state.json 重新渲染 svg_output/，继续走 finalize/export 链路
-3. 为当前“Executor 先产出 SVG”工作流补上正式的 slide_state 真相源
+1. 将现有项目的 svg_output/ 或 svg_final/ 收敛为兼容 slide_state.json
+2. 从兼容 slide_state.json 重新渲染 svg_output/，继续走 finalize/export 链路
+3. 为 SVG-first 工作流提供 compat/import/handoff/legacy tooling，不改变主产物仍为 SVG
 
 用法:
     python3 tools/slide_state_bridge.py capture <project_path> [--source-dir svg_output] [--state-file slide_state.json]
@@ -63,7 +63,7 @@ def run_editor_cli(args: list[str]) -> None:
     node = shutil.which('node')
     npm = shutil.which('npm')
     if not node or not npm:
-        raise SystemExit('错误: 需要 Bun，或同时安装 Node.js + npm 才能运行 slide_state bridge')
+        raise SystemExit('错误: 需要 Bun，或同时安装 Node.js + npm 才能运行 Design Editor compat bridge')
 
     ensure_compiled_cli(npm)
     completed = subprocess.run(
@@ -75,7 +75,7 @@ def run_editor_cli(args: list[str]) -> None:
 
 
 def ensure_compiled_cli(npm: str) -> None:
-    print('[slide_state_bridge] 当前使用 Node fallback，正在执行 `npm run build` ...', flush=True)
+    print('[slide_state_bridge] 当前使用 Node fallback，正在执行 `npm run build` 以运行 compat bridge ...', flush=True)
     completed = subprocess.run(
         [npm, 'run', 'build'],
         cwd=EDITOR_DIR,
